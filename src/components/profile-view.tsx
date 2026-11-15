@@ -12,7 +12,7 @@ import { BlockyCharacter } from '@/components/blocky-character';
 import { compact } from '@/components/reel-card';
 import { GENRE_COLORS } from '@/library';
 import { useLocalIds } from '@/local';
-import { useMyId, useSwitchAccount } from '@/me';
+import { useMyId, useNewAccount, useSwitchAccount } from '@/me';
 import { colors, radius, type } from '@/theme';
 
 type Tab = 'reels' | 'saved';
@@ -31,6 +31,7 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
   const [bio, setBio] = useState('');
   const [switching, setSwitching] = useState(false);
   const switchAccount = useSwitchAccount();
+  const newAccount = useNewAccount();
   const people = useQuery(api.social.people, switching ? { userId: me ?? undefined } : 'skip');
 
   if (!profile) {
@@ -168,6 +169,15 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
               </Pressable>
             ))}
           </ScrollView>
+          <Pressable
+            testID="new-account"
+            onPress={async () => {
+              setSwitching(false);
+              await newAccount();
+            }}
+            style={[styles.action, { backgroundColor: colors.yellow }]}>
+            <Text style={[styles.actionText, { color: '#000' }]}>＋ New account</Text>
+          </Pressable>
           <Pressable onPress={() => setSwitching(false)} style={styles.action}>
             <Text style={styles.actionText}>Cancel</Text>
           </Pressable>

@@ -71,6 +71,17 @@ export function useSwitchAccount() {
   };
 }
 
+export function useNewAccount() {
+  const create = useMutation(api.social.newAccount);
+  return async () => {
+    const key = await deviceKey();
+    const id = await create({ deviceKey: key });
+    cached = id;
+    pending = Promise.resolve(id);
+    listeners.forEach((fn) => fn(id));
+  };
+}
+
 export function useMe() {
   const id = useMyId();
   const me = useQuery(api.social.me, id ? { userId: id } : 'skip');

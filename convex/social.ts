@@ -295,6 +295,19 @@ export const followingIds = query({
   },
 });
 
+export const newAccount = mutation({
+  args: { deviceKey: v.string() },
+  handler: async (ctx, { deviceKey }) => {
+    const current = await ctx.db
+      .query("users")
+      .withIndex("by_device", (q) => q.eq("deviceKey", deviceKey))
+      .collect();
+    for (const u of current) await ctx.db.patch(u._id, { deviceKey: "parked:" + u._id });
+    const handle = await freeHandle(ctx, "director");
+    return await ctx.db.insert("users", { deviceKey, handle, name: "New director" });
+  },
+});
+
 export const switchAccount = mutation({
   args: { deviceKey: v.string(), toUserId: v.id("users") },
   handler: async (ctx, { deviceKey, toUserId }) => {
