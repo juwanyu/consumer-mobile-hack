@@ -1660,7 +1660,7 @@ def build_edit_punchy(plan, built, wav_path, tmpdir):
         stars = [credit_name(c) for c in plan["cast"] if not c.get("npc")]
         if stars:
             cr = _plain_text(se, "credits", "Starring " + " \u00b7 ".join(stars), title_f + 8, n_t - 8, ch("credits"),
-                             0.5, 0.1, 26 if len(stars) < 3 else 22, align="CENTER", outline=0.06, wrap=0.97)
+                             0.5, 0.3, 26 if len(stars) < 3 else 22, align="CENTER", outline=0.06, wrap=0.97)
             _fade(cr, title_f + 8, n_t - 8, 5, 0)
         _flash(se, "title_flash", title_f, 8, ch("title_flash"))
 

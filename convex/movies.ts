@@ -265,6 +265,13 @@ export const feed = query({
       .withIndex("by_status", (q) => q.eq("status", "done"))
       .order("desc")
       .take(100);
+    for (const status of ["queued", "rendering"] as const) {
+      const busy = await ctx.db
+        .query("movies")
+        .withIndex("by_status", (q) => q.eq("status", status))
+        .take(50);
+      done.push(...busy.filter((m) => m.videoStorageId));
+    }
     const posted = done.filter((m) => m.postedToFeed).sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0));
     return await Promise.all(posted.map((m) => feedItem(ctx, m)));
   },

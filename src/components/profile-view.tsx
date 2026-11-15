@@ -191,9 +191,20 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
         contentContainerStyle={{ paddingHorizontal: 14, paddingBottom: 32, gap: 3 }}
         ListHeaderComponent={header}
         ListEmptyComponent={
-          <Text style={[type.small, { textAlign: 'center', marginTop: 30 }]}>
-            {tab === 'saved' ? 'Bookmark reels in the feed to keep them here.' : profile.isMe ? 'Your reels show up here. Open the Studio to make one.' : 'No reels yet.'}
-          </Text>
+          tab !== 'saved' && profile.isMe ? (
+            <Pressable testID="first-reel" onPress={() => router.push('/cast/consent')} style={styles.firstReel}>
+              <Text style={{ fontSize: 34 }}>🎬</Text>
+              <Text style={styles.firstReelTitle}>Make your first reel</Text>
+              <Text style={[type.small, { textAlign: 'center' }]}>Cast yourself with one selfie, then star in Fate/Ship Night, Send It or Wax On.</Text>
+              <View style={styles.firstReelBtn}>
+                <Text style={{ color: '#000', fontWeight: '900', fontSize: 15 }}>Cast yourself →</Text>
+              </View>
+            </Pressable>
+          ) : (
+            <Text style={[type.small, { textAlign: 'center', marginTop: 30 }]}>
+              {tab === 'saved' ? 'Bookmark reels in the feed to keep them here.' : 'No reels yet.'}
+            </Text>
+          )
         }
         renderItem={({ item }) => {
           const accent = GENRE_COLORS[item.genre] ?? colors.yellow;
@@ -238,6 +249,9 @@ const SWITCH_HANDLES = ['justinyu', 'justinsun', 'landseer', 'lam'];
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
   sheet: { flex: 1, backgroundColor: colors.surface, padding: 18, paddingBottom: 32, gap: 10 },
+  firstReel: { marginTop: 18, alignItems: 'center', gap: 8, padding: 22, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
+  firstReelTitle: { color: colors.text, fontWeight: '900', fontSize: 20 },
+  firstReelBtn: { marginTop: 6, backgroundColor: colors.yellow, borderRadius: radius.pill, paddingHorizontal: 20, paddingVertical: 11 },
   sheetButton: { backgroundColor: colors.surfaceHi, borderRadius: radius.sm, paddingVertical: 14, alignItems: 'center' },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: radius.md, backgroundColor: colors.surfaceHi },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 6 },

@@ -320,11 +320,11 @@ export const groupsDemo = internalMutation({
         ],
       },
       {
-        name: "Whop dojo 🥋",
+        name: "Dojo 🥋",
         members: ["lam", "harris"],
         msgs: [
           ["lam", "wax on, wax off 🥋"],
-          ["lam", "crew is ready for the karate reel, sending to the Whop community", otherIds[1]],
+          ["lam", "crew is ready for the karate reel, sending to the crew", otherIds[1]],
         ],
       },
     ];
@@ -364,15 +364,15 @@ const BY_GENRE: Record<string, string[]> = {
   fate: ["EXCALIBUR 😭😭😭", "the YC army storming the castle is diabolical 💀", "Justin as Saber is canon now", "Harris carrying the whole squire arc", "Harris holding the banner like a real squire",
     "the beam sweep 🔥🔥", "Capy castle stays standing", "Grail War but make it Demo Day"],
   mtb: ["tested on a real iPhone via Revyl 🤘", "SEND IT", "the slow-mo air 😮", "stuck the landing", "Revyl riders where you at 🚵"],
-  karate: ["wax on wax off 🥋", "the crane kick!!!", "Lam the new karate kid fr", "Whop dojo stand up", "HI-YAH"],
+  karate: ["train hard 🥋", "that spin kick!!!", "Lam is the dojo champ fr", "dojo crew stand up", "HI-YAH"],
   heist: ["the vault scene 🕶️", "heist society reporting in", "smooth criminal energy"],
   space: ["launch sequence was clean 🚀", "space mission > every sci-fi trailer"],
   kaiju: ["the kaiju stomp 🦖", "city destroyed in 9 seconds lmao"],
 };
 const CAMEOS: Record<string, Array<[string, string]>> = {
-  fate: [["garrytan", "This is the most YC thing I've ever seen 🔥"], ["harris", "Squire reporting for duty 🎥"], ["landseer", "every frame tested on a real iPhone via Revyl 🤘"], ["lam", "Whop dojo approves ⚔️"]],
+  fate: [["garrytan", "This is the most YC thing I've ever seen 🔥"], ["harris", "Squire reporting for duty 🎥"], ["landseer", "every frame tested on a real iPhone via Revyl 🤘"], ["lam", "the dojo approves ⚔️"]],
   mtb: [["landseer", "tested on a real iPhone via Revyl 🤘"], ["garrytan", "Revyl sends it"], ["justinsun", "Capy wrote the trail 😂"]],
-  karate: [["lam", "wax on, wax off 🥋 presented by Whop"], ["harris", "the crane kick angle 🎥"], ["garrytan", "Whop with the sponsor W"]],
+  karate: [["lam", "train hard, kick harder 🥋"], ["harris", "the spin kick angle 🎥"], ["garrytan", "the sponsor W tho"]],
 };
 
 export const commentsDemo = internalMutation({
@@ -501,11 +501,11 @@ const CREWS_DEMO = [
     wall: ["jh72mmkvh3y7taygyqdtab1tg18j99b0", "jh79gtb7wv328zse5qwa054kf18j8863", "jh7ep0trmxkyvay6jmc0vywqk98j9vyt", "jh7ebqykwah6qjzyjz7mbgxs198j9nwy", "jh7dcryansz92nq892q53cdsm18j99hk", "jh7806k6zt069kfa48hd6zzse18j9vw3"],
     members: ["landseer", "justinyu", "noahkim", "tylerships", "devpatel_"],
     chat: [["landseer", "SEND IT is live 🤘"], ["noahkim", "the slow-mo air"], ["tylerships", "Revyl caught a crash in my build in 30s"], ["landseer", "that's the point 😎"], ["devpatel_", "co-op lobby: need a Chase rider"], ["justinyu", "grabbing Hype crew"], ["noahkim", "purple hoodie gang"], ["landseer", "biggest send wins merch"], ["tylerships", "rendering a downhill one"], ["devpatel_", "the dust fx 🔥"], ["landseer", "every frame tested on a real iPhone via Revyl"], ["noahkim", "lol"], ["justinyu", "co-op filling up"], ["tylerships", "claimed"], ["landseer", "roll camera when ready"]] },
-  { slug: "whop-dojo", name: "Whop Dojo", emoji: "🥋", accent: "#FA4616", blurb: "The new karate kids. WAX ON is presented by Whop.", memberBase: 3470, rank: 4,
+  { slug: "whop-dojo", name: "Dojo Crew", emoji: "🥋", accent: "#FA4616", blurb: "Black belts only. Kick, flip, star in WAX ON.", memberBase: 3470, rank: 4,
     challenge: { title: "Wax on, wax off", prize: "Free WAX ON remix", days: 5 },
     wall: ["jh79s63xw4crdgzz8ts4ny83t98j8pqk", "jh79gtb7wv328zse5qwa054kf18j8863", "jh733ped1qzsf0697qcphvcna58j8txk", "jh74zjk1r1bzzxve12pjzynez18j9m2m", "jh704es87w6z7mwkxmvr00yjy58j9jyx", "jh77egjyt39wyed4dr4kd6cv458j9fz4"],
     members: ["lam", "justinyu", "kenji", "priya", "omar", "harris"],
-    chat: [["lam", "WAX ON just dropped 🥋"], ["kenji", "the crane kick!!"], ["priya", "$5 to remix WAX ON is worth it"], ["lam", "paid remixes go straight to the creator through Whop"], ["omar", "just bought a remix"], ["harris", "Sensei role is mine"], ["justinyu", "creators get paid for remixes, love it"], ["kenji", "HI-YAH"], ["lam", "co-op lobby open, need a Rival + Narrator"], ["priya", "claiming Narrator"], ["omar", "wax on wax off"], ["lam", "challenge winner gets a free remix"], ["kenji", "rendering mine"], ["harris", "the dojo set looks clean"], ["priya", "🥋🥋🥋"]] },
+    chat: [["lam", "WAX ON just dropped 🥋"], ["kenji", "that spin kick!!"], ["priya", "$5 to remix WAX ON is worth it"], ["lam", "paid remixes go straight to the creator through Whop"], ["omar", "just bought a remix"], ["harris", "Sensei role is mine"], ["justinyu", "creators get paid for remixes, love it"], ["kenji", "HI-YAH"], ["lam", "co-op lobby open, need a Rival + Narrator"], ["priya", "claiming Narrator"], ["omar", "wax on wax off"], ["lam", "challenge winner gets a free remix"], ["kenji", "rendering mine"], ["harris", "the dojo set looks clean"], ["priya", "🥋🥋🥋"]] },
   { slug: "heist-society", name: "Heist Society", emoji: "🕶️", accent: "#3DDC84", blurb: "Vaults, getaways and double-crosses.", memberBase: 4215, rank: 6,
     challenge: { title: "The perfect getaway", prize: "Crew spotlight", days: 6 },
     wall: ["jh733ped1qzsf0697qcphvcna58j8txk", "jh74zjk1r1bzzxve12pjzynez18j9m2m", "jh7a0q1y7btv15zad740xckr558j90sb", "jh7c4ngw6cd6zrvgxd2tq25wp58j8tjr", "jh7ep0trmxkyvay6jmc0vywqk98j9vyt", "jh7dcryansz92nq892q53cdsm18j99hk"],
@@ -614,8 +614,8 @@ export const planTitle = internalMutation({
 });
 
 export const scrubText = internalMutation({
-  args: { from: v.string(), to: v.string() },
-  handler: async (ctx, { from, to }) => {
+  args: { from: v.string(), to: v.string(), tables: v.optional(v.array(v.string())) },
+  handler: async (ctx, { from, to, tables }) => {
     let n = 0;
     const fix = (o: unknown): unknown => {
       if (typeof o === "string") return o.split(from).join(to);
@@ -623,7 +623,7 @@ export const scrubText = internalMutation({
       if (o && typeof o === "object") return Object.fromEntries(Object.entries(o).map(([k, x]) => [k, fix(x)]));
       return o;
     };
-    for (const table of ["movies", "coops"] as const) {
+    for (const table of (tables ?? ["movies", "coops"]) as ("movies" | "coops")[]) {
       for (const doc of await ctx.db.query(table).collect()) {
         if (!JSON.stringify(doc).includes(from)) continue;
         const { _id, _creationTime, ...rest } = doc;
@@ -637,8 +637,8 @@ export const scrubText = internalMutation({
 
 
 export const starterInbox = internalMutation({
-  args: { meId: v.id("users") },
-  handler: async (ctx, { meId }) => {
+  args: { meId: v.id("users"), reset: v.optional(v.boolean()) },
+  handler: async (ctx, { meId, reset }) => {
     const me = await ctx.db.get(meId);
     const hero = await ctx.db
       .query("users")
@@ -649,7 +649,11 @@ export const starterInbox = internalMutation({
       .query("messages")
       .withIndex("by_to", (q) => q.eq("toId", meId))
       .first();
-    if (already) return 0;
+    if (already && !reset) return 0;
+    if (reset) {
+      for (const m of await ctx.db.query("messages").withIndex("by_to", (q) => q.eq("toId", meId)).collect()) await ctx.db.delete(m._id);
+      for (const m of await ctx.db.query("messages").withIndex("by_from", (q) => q.eq("fromId", meId)).collect()) await ctx.db.delete(m._id);
+    }
     const incoming = await ctx.db
       .query("messages")
       .withIndex("by_to", (q) => q.eq("toId", hero._id))
@@ -665,7 +669,7 @@ export const starterInbox = internalMutation({
       const fromId = m.fromId === hero._id ? meId : m.fromId;
       const toId = m.toId === hero._id ? meId : m.toId;
       if (fromId === toId) continue;
-      await ctx.db.insert("messages", { fromId, toId, body: m.body, ...(m.movieId ? { movieId: m.movieId } : {}), ...(fromId === meId ? { readAt: Date.now() } : {}) });
+      await ctx.db.insert("messages", { fromId, toId, body: m.body, at: m.at ?? m._creationTime, ...(m.movieId ? { movieId: m.movieId } : {}), ...(fromId === meId ? { readAt: Date.now() } : {}) });
     }
     for (const g of await ctx.db.query("groups").collect()) {
       if (g.memberIds.includes(hero._id) && !g.memberIds.includes(meId)) await ctx.db.patch(g._id, { memberIds: [...g.memberIds, meId] });

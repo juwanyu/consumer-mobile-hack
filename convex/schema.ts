@@ -103,6 +103,7 @@ export default defineSchema({
     body: v.string(),
     movieId: v.optional(v.id("movies")),
     readAt: v.optional(v.number()),
+    at: v.optional(v.number()),
   })
     .index("by_to", ["toId"])
     .index("by_from", ["fromId"]),

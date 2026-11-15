@@ -223,7 +223,7 @@ export const inbox = query({
       .order("desc")
       .take(200);
     const threads = new Map<Id<"users">, { last: Doc<"messages">; unread: number }>();
-    for (const m of [...incoming, ...outgoing].sort((a, b) => b._creationTime - a._creationTime)) {
+    for (const m of [...incoming, ...outgoing].sort((a, b) => (b.at ?? b._creationTime) - (a.at ?? a._creationTime))) {
       const peer = m.fromId === userId ? m.toId : m.fromId;
       const t = threads.get(peer) ?? { last: m, unread: 0 };
       if (m.toId === userId && !m.readAt) t.unread++;
@@ -237,7 +237,7 @@ export const inbox = query({
       const peer = await ownerCard(ctx, peerId);
       if (!peer) continue;
       const body = t.last.body || "Sent a reel 🎬";
-      out.push({ kind: "dm" as const, key: peerId as string, peer, group: null, unread: t.unread, at: t.last._creationTime, pinned: pinned.includes(peerId), preview: (t.last.fromId === userId ? "You: " : "") + body });
+      out.push({ kind: "dm" as const, key: peerId as string, peer, group: null, unread: t.unread, at: t.last.at ?? t.last._creationTime, pinned: pinned.includes(peerId), preview: (t.last.fromId === userId ? "You: " : "") + body });
     }
     for (const g of await myGroups(ctx, userId)) {
       const s = await groupSummary(ctx, g, userId);
@@ -277,12 +277,12 @@ export const thread = query({
       .order("desc")
       .take(200);
     const rows = [...mine.filter((m) => m.toId === peerId), ...theirs.filter((m) => m.fromId === peerId)].sort(
-      (a, b) => a._creationTime - b._creationTime,
+      (a, b) => (a.at ?? a._creationTime) - (b.at ?? b._creationTime),
     );
     return {
       peer: await ownerCard(ctx, peerId),
       messages: await Promise.all(
-        rows.map(async (m) => ({ _id: m._id, mine: m.fromId === userId, body: m.body, at: m._creationTime, reel: await reelPreview(ctx, m.movieId) })),
+        rows.map(async (m) => ({ _id: m._id, mine: m.fromId === userId, body: m.body, at: m.at ?? m._creationTime, reel: await reelPreview(ctx, m.movieId) })),
       ),
     };
   },
