@@ -11,7 +11,7 @@ import { colors, radius, type } from '@/theme';
 import { uploadPhoto } from '@/upload';
 
 export default function Photo() {
-  const { id, recast } = useLocalSearchParams<{ id: Id<'castMembers'>; recast?: string }>();
+  const { id, recast, remix } = useLocalSearchParams<{ id: Id<'castMembers'>; recast?: string; remix?: string }>();
   const router = useRouter();
   const camera = useRef<CameraView>(null);
   const [permission, requestPermission] = useCameraPermissions();
@@ -24,7 +24,7 @@ export default function Photo() {
     setError(null);
     try {
       await uploadPhoto(id, uri, mimeType);
-      router.replace({ pathname: '/cast/[id]/reveal', params: { id, ...(recast ? { recast } : {}) } });
+      router.replace({ pathname: '/cast/[id]/reveal', params: { id, ...(recast ? { recast } : {}), ...(remix ? { remix } : {}) } });
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Upload failed. Try again.');
       setBusy(false);

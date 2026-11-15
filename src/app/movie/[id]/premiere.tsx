@@ -132,7 +132,7 @@ export default function Premiere() {
           )}
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
-              <BigButton testID="recast" variant="secondary" icon="🔄" label="Recast" onPress={() => router.push({ pathname: '/cast/consent', params: { recast: id } })} />
+              <BigButton testID="remix" variant="secondary" icon="🔁" label="Remix" onPress={() => router.push({ pathname: '/movie/[id]/remix', params: { id } })} />
             </View>
             <View style={{ flex: 1 }}>
               <BigButton testID="replay" variant="secondary" icon="▶️" label="Replay" onPress={replay} />

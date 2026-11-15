@@ -1,11 +1,17 @@
 {
-  "version": 1,
+  "version": 2,
   "render": {
     "width": 720,
     "height": 1280,
     "fps": 24,
     "shot_seconds": 3,
-    "max_shots": 3
+    "max_shots": 3,
+    "reel_max_shots": 6,
+    "reel_shot_seconds": {
+      "min": 1.5,
+      "max": 4,
+      "default": 2.5
+    }
   },
   "looks": {
     "hair_styles": [
@@ -39,7 +45,8 @@
       "suit",
       "jacket",
       "tanktop",
-      "dress"
+      "dress",
+      "armor"
     ],
     "accessories": [
       "none",
@@ -48,7 +55,9 @@
       "headphones",
       "cowboy_hat",
       "crown",
-      "bowtie"
+      "bowtie",
+      "sword",
+      "camera"
     ]
   },
   "locations": {
@@ -84,6 +93,9 @@
     },
     "saloon": {
       "label": "Western Saloon"
+    },
+    "summoning_room": {
+      "label": "Summoning Room"
     }
   },
   "character_marks": [
@@ -122,7 +134,10 @@
     "sneak",
     "talk",
     "scared",
-    "sit"
+    "sit",
+    "summon",
+    "slash",
+    "film"
   ],
   "genres": {
     "heist": {
@@ -208,6 +223,56 @@
         "main_street",
         "main_street"
       ]
+    },
+    "fate": {
+      "label": "Fate Anime",
+      "emoji": "⚔️",
+      "roles": [
+        "Master",
+        "Caster",
+        "Archer"
+      ],
+      "default_locations": [
+        "summoning_room",
+        "rooftop",
+        "main_street"
+      ]
+    }
+  },
+  "fx": [
+    "none",
+    "magic_circle",
+    "flash",
+    "sparkles",
+    "speed_lines",
+    "excalibur"
+  ],
+  "styles": {
+    "cinematic": {
+      "label": "Cinematic",
+      "description": "Classic 3-shot movie with subtitles"
+    },
+    "punchy": {
+      "label": "Punchy reel",
+      "description": "Fast narrated beats, counter HUD, word-pop captions"
+    }
+  },
+  "npcs": {
+    "saber": {
+      "name": "Saber",
+      "role": "Saber",
+      "look": {
+        "skin_tone": "#F6D5BE",
+        "hair_color": "#F2D16B",
+        "hair_style": "bun",
+        "facial_hair": "none",
+        "glasses": "none",
+        "shirt_color": "#2A4FB5",
+        "shirt_style": "armor",
+        "pants_color": "#2A4FB5",
+        "accessory": "sword",
+        "vibe": "A knight-king who answers the summons."
+      }
     }
   }
 }

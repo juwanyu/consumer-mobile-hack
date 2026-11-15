@@ -8,16 +8,18 @@ import { api } from '../../../../convex/_generated/api';
 import type { Id } from '../../../../convex/_generated/dataModel';
 import { BlockyCharacter } from '@/components/blocky-character';
 import { BigButton, Pill, Screen } from '@/components/ui';
+import { addLocal } from '@/local';
 import { colors, type } from '@/theme';
 
 const LINES = ['Reading the vibe…', 'Mixing skin tones…', 'Sculpting the hair…', 'Picking the outfit…', 'Snapping on the head…'];
 
 export default function Reveal() {
-  const { id, recast } = useLocalSearchParams<{ id: Id<'castMembers'>; recast?: Id<'movies'> }>();
+  const { id, recast: recastParam, remix } = useLocalSearchParams<{ id: Id<'castMembers'>; recast?: Id<'movies'>; remix?: Id<'movies'> }>();
+  const recast = recastParam ?? remix;
   const router = useRouter();
   const member = useQuery(api.casting.get, { castMemberId: id });
   const original = useQuery(api.movies.get, recast ? { movieId: recast } : 'skip');
-  const recastMovie = useMutation(api.movies.recast);
+  const remixMovie = useMutation(api.movies.remix);
   const [line, setLine] = useState(0);
   const pop = useRef(new Animated.Value(0)).current;
 
@@ -60,7 +62,7 @@ export default function Reveal() {
         <Text style={{ fontSize: 64 }}>🎭</Text>
         <Text style={[type.title, { textAlign: 'center' }]}>Casting hiccup</Text>
         <Text style={[type.body, { textAlign: 'center', color: colors.muted }]}>{member.error ?? 'Something went wrong.'}</Text>
-        <BigButton label="Try another photo" onPress={() => router.replace({ pathname: '/cast/[id]/photo', params: { id, ...(recast ? { recast } : {}) } })} />
+        <BigButton label="Try another photo" onPress={() => router.replace({ pathname: '/cast/[id]/photo', params: { id, ...(recastParam ? { recast: recastParam } : {}), ...(remix ? { remix } : {}) } })} />
       </Screen>
     );
   }
@@ -86,12 +88,13 @@ export default function Reveal() {
           icon="⭐"
           label={`Star in ${original.story.title}`}
           onPress={async () => {
-            const movieId = await recastMovie({ movieId: recast, castMemberId: id });
-            router.replace({ pathname: '/movie/[id]/story', params: { id: movieId } });
+            const movieId = await remixMovie({ movieId: recast, castMemberId: id });
+            await addLocal('mine', movieId);
+            router.replace({ pathname: original.reel ? '/movie/[id]/reel' : '/movie/[id]/story', params: { id: movieId } });
           }}
         />
       ) : (
-        <BigButton testID="pick-genre" icon="🎞️" label="Pick a genre" onPress={() => router.push({ pathname: '/movie/new', params: { castMemberId: id } })} />
+        <BigButton testID="pick-genre" icon="🎞️" label="Pick your reel" onPress={() => router.push({ pathname: '/movie/new', params: { castMemberId: id } })} />
       )}
       <BigButton variant="ghost" label="Cast someone else" onPress={() => router.replace('/cast/consent')} />
     </Screen>

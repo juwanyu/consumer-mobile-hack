@@ -12,6 +12,9 @@ import type * as casting from "../casting.js";
 import type * as lookAi from "../lookAi.js";
 import type * as looks from "../looks.js";
 import type * as movies from "../movies.js";
+import type * as narration from "../narration.js";
+import type * as reelPlan from "../reelPlan.js";
+import type * as reels from "../reels.js";
 import type * as story from "../story.js";
 import type * as worker from "../worker.js";
 
@@ -26,6 +29,9 @@ declare const fullApi: ApiFromModules<{
   lookAi: typeof lookAi;
   looks: typeof looks;
   movies: typeof movies;
+  narration: typeof narration;
+  reelPlan: typeof reelPlan;
+  reels: typeof reels;
   story: typeof story;
   worker: typeof worker;
 }>;

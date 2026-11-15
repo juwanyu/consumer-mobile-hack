@@ -25,10 +25,17 @@ export default defineSchema({
   }),
   movies: defineTable({
     genre: v.string(),
-    cast: v.array(v.object({ castMemberId: v.id("castMembers"), role: v.string() })),
+    cast: v.array(v.object({ castMemberId: v.id("castMembers"), role: v.string(), slot: v.optional(v.string()) })),
     story: storyValidator,
+    reel: v.optional(
+      v.object({
+        templateId: v.string(),
+        beats: v.array(v.object({ caption: v.string(), narration: v.string() })),
+      }),
+    ),
     status: v.union(
       v.literal("draft"),
+      v.literal("voicing"),
       v.literal("queued"),
       v.literal("rendering"),
       v.literal("done"),
@@ -43,6 +50,8 @@ export default defineSchema({
     error: v.optional(v.string()),
     okToPost: v.boolean(),
     postedToFeed: v.boolean(),
+    likes: v.optional(v.number()),
+    remixOf: v.optional(v.id("movies")),
     recastOf: v.optional(v.id("movies")),
     lockedAt: v.optional(v.number()),
     finishedAt: v.optional(v.number()),

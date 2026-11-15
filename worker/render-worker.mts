@@ -32,7 +32,10 @@ const api = anyApi;
 const client = new ConvexClient(CONVEX_URL);
 const log = (...args: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...args);
 
-type Plan = { cast?: Array<{ id: string; name: string }> };
+type Plan = {
+  cast?: Array<{ id: string; name: string }>;
+  shots?: Array<{ narration?: { audio_url?: string | null; audio_path?: string | null } | null }>;
+};
 type Progress = { stage?: string; shot?: number; of?: number; pct?: number };
 
 function labelFor(p: Progress, plan: Plan) {
@@ -87,6 +90,19 @@ async function render(movieId: string, plan: Plan) {
   await mkdir(dir, { recursive: true });
   const planPath = join(dir, "plan.json");
   const outPath = join(dir, "out.mp4");
+  for (const [i, shot] of (plan.shots ?? []).entries()) {
+    const url = shot.narration?.audio_url;
+    if (!url || !shot.narration) continue;
+    try {
+      const res = await fetch(url);
+      if (!res.ok) throw new Error(`HTTP ${res.status}`);
+      const audioPath = join(dir, `narration${i + 1}.mp3`);
+      await writeFile(audioPath, Buffer.from(await res.arrayBuffer()));
+      shot.narration.audio_path = audioPath;
+    } catch (error) {
+      log(`narration ${i + 1} download failed, rendering without it:`, error instanceof Error ? error.message : error);
+    }
+  }
   await writeFile(planPath, JSON.stringify(plan, null, 2));
 
   let lastSent = 0;
