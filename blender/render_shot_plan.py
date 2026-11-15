@@ -1664,6 +1664,12 @@ def build_edit_punchy(plan, built, wav_path, tmpdir):
             _fade(cr, title_f + 8, n_t - 8, 5, 0)
         _flash(se, "title_flash", title_f, 8, ch("title_flash"))
 
+    try:
+        _plain_text(se, "watermark", "MADE WITH CAST", 1, total, ch("watermark"), 0.95, 0.93, 22,
+                    color=(1, 1, 1, 0.8), align="RIGHT", outline=0.05)
+    except Exception as e:
+        print(f"[cast] watermark skipped: {e}", flush=True)
+
     add_audio(se, plan, built, wav_path, ch("music"))
     ch("narration")
     return edit
