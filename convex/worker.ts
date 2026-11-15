@@ -33,6 +33,8 @@ export const claim = mutation({
       claimedAt: Date.now(),
       attempts: movie.attempts + 1,
       progress: { label: "Building the set…", pct: 2 },
+      stages: ["Script locked", "Building the set…"],
+      previews: [],
     });
     return { plan: movie.plan, attempt: movie.attempts + 1 };
   },
@@ -44,7 +46,24 @@ export const progress = mutation({
     checkSecret(secret);
     const movie = await ctx.db.get(movieId);
     if (!movie || movie.status !== "rendering") return;
-    await ctx.db.patch(movieId, { progress: { label, pct: Math.max(0, Math.min(100, pct)) } });
+    const stages = movie.stages ?? [];
+    await ctx.db.patch(movieId, {
+      progress: { label, pct: Math.max(0, Math.min(100, pct)) },
+      ...(stages[stages.length - 1]?.replace(/…$/, "") === label.replace(/…$/, "") || label === "Rolling…"
+        ? {}
+        : { stages: [...stages, label].slice(-14) }),
+    });
+  },
+});
+
+export const addPreview = mutation({
+  args: { secret: v.string(), movieId: v.id("movies"), shot: v.number(), storageId: v.id("_storage") },
+  handler: async (ctx, { secret, movieId, shot, storageId }) => {
+    checkSecret(secret);
+    const movie = await ctx.db.get(movieId);
+    if (!movie) return;
+    const previews = (movie.previews ?? []).filter((p) => p.shot !== shot);
+    await ctx.db.patch(movieId, { previews: [...previews, { shot, storageId }].sort((a, b) => a.shot - b.shot) });
   },
 });
 

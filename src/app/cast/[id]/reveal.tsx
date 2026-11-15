@@ -9,6 +9,7 @@ import type { Id } from '../../../../convex/_generated/dataModel';
 import { BlockyCharacter } from '@/components/blocky-character';
 import { BigButton, Pill, Screen } from '@/components/ui';
 import { addLocal } from '@/local';
+import { useMyId } from '@/me';
 import { colors, type } from '@/theme';
 
 const LINES = ['Reading the vibe…', 'Mixing skin tones…', 'Sculpting the hair…', 'Picking the outfit…', 'Snapping on the head…'];
@@ -20,6 +21,8 @@ export default function Reveal() {
   const member = useQuery(api.casting.get, { castMemberId: id });
   const original = useQuery(api.movies.get, recast ? { movieId: recast } : 'skip');
   const remixMovie = useMutation(api.movies.remix);
+  const linkCharacter = useMutation(api.social.linkCharacter);
+  const myId = useMyId();
   const [line, setLine] = useState(0);
   const pop = useRef(new Animated.Value(0)).current;
 
@@ -32,10 +35,11 @@ export default function Reveal() {
   useEffect(() => {
     if (member?.status === 'ready') {
       Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+      if (myId) linkCharacter({ userId: myId, castMemberId: id });
       Animated.spring(pop, { toValue: 1, friction: 4, tension: 60, useNativeDriver: true }).start();
     }
     if (member?.status === 'failed') Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
-  }, [member?.status, pop]);
+  }, [member?.status, pop, myId, id, linkCharacter]);
 
   if (member === undefined || member?.status === 'analyzing' || member?.status === 'awaiting_photo') {
     return (
@@ -88,7 +92,7 @@ export default function Reveal() {
           icon="⭐"
           label={`Star in ${original.story.title}`}
           onPress={async () => {
-            const movieId = await remixMovie({ movieId: recast, castMemberId: id });
+            const movieId = await remixMovie({ movieId: recast, castMemberId: id, ownerId: myId ?? undefined });
             await addLocal('mine', movieId);
             router.replace({ pathname: original.reel ? '/movie/[id]/reel' : '/movie/[id]/story', params: { id: movieId } });
           }}

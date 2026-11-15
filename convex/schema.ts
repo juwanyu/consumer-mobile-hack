@@ -43,6 +43,14 @@ export default defineSchema({
     ),
     plan: v.optional(v.any()),
     progress: v.optional(v.object({ label: v.string(), pct: v.number() })),
+    stages: v.optional(v.array(v.string())),
+    previews: v.optional(v.array(v.object({ shot: v.number(), storageId: v.id("_storage") }))),
+    ownerId: v.optional(v.id("users")),
+    commentCount: v.optional(v.number()),
+    shareCount: v.optional(v.number()),
+    views: v.optional(v.number()),
+    remixCount: v.optional(v.number()),
+    pinnedAt: v.optional(v.number()),
     attempts: v.number(),
     workerId: v.optional(v.string()),
     claimedAt: v.optional(v.number()),
@@ -55,5 +63,75 @@ export default defineSchema({
     recastOf: v.optional(v.id("movies")),
     lockedAt: v.optional(v.number()),
     finishedAt: v.optional(v.number()),
-  }).index("by_status", ["status"]),
+  })
+    .index("by_status", ["status"])
+    .index("by_owner", ["ownerId"]),
+  users: defineTable({
+    deviceKey: v.string(),
+    handle: v.string(),
+    name: v.string(),
+    bio: v.optional(v.string()),
+    castMemberId: v.optional(v.id("castMembers")),
+    whopUserId: v.optional(v.string()),
+    followersOffset: v.optional(v.number()),
+    pinnedPeers: v.optional(v.array(v.id("users"))),
+  })
+    .index("by_device", ["deviceKey"])
+    .index("by_handle", ["handle"]),
+  follows: defineTable({ followerId: v.id("users"), followeeId: v.id("users") })
+    .index("by_follower", ["followerId", "followeeId"])
+    .index("by_followee", ["followeeId"]),
+  comments: defineTable({
+    movieId: v.id("movies"),
+    userId: v.id("users"),
+    body: v.string(),
+    parentId: v.optional(v.id("comments")),
+    likes: v.optional(v.number()),
+    pinned: v.optional(v.boolean()),
+  }).index("by_movie", ["movieId"]),
+  commentLikes: defineTable({ commentId: v.id("comments"), userId: v.id("users") }).index("by_comment_user", ["commentId", "userId"]),
+  messages: defineTable({
+    fromId: v.id("users"),
+    toId: v.id("users"),
+    body: v.string(),
+    movieId: v.optional(v.id("movies")),
+    readAt: v.optional(v.number()),
+  })
+    .index("by_to", ["toId"])
+    .index("by_from", ["fromId"]),
+  groups: defineTable({
+    name: v.string(),
+    memberIds: v.array(v.id("users")),
+    createdBy: v.id("users"),
+    lastAt: v.number(),
+  }),
+  groupMessages: defineTable({
+    groupId: v.id("groups"),
+    fromId: v.id("users"),
+    body: v.string(),
+    movieId: v.optional(v.id("movies")),
+  }).index("by_group", ["groupId"]),
+  groupReads: defineTable({ groupId: v.id("groups"), userId: v.id("users"), readAt: v.number() }).index("by_group_user", ["groupId", "userId"]),
+  crews: defineTable({
+    slug: v.string(),
+    name: v.string(),
+    emoji: v.string(),
+    blurb: v.string(),
+    whopChannelId: v.optional(v.string()),
+    syncedAt: v.optional(v.number()),
+  }).index("by_slug", ["slug"]),
+  crewMembers: defineTable({ crewId: v.id("crews"), userId: v.id("users") })
+    .index("by_crew", ["crewId", "userId"])
+    .index("by_user", ["userId"]),
+  crewPosts: defineTable({
+    crewId: v.id("crews"),
+    userId: v.optional(v.id("users")),
+    authorName: v.string(),
+    body: v.string(),
+    movieId: v.optional(v.id("movies")),
+    whopMessageId: v.optional(v.string()),
+    source: v.union(v.literal("cast"), v.literal("whop")),
+  })
+    .index("by_crew", ["crewId"])
+    .index("by_whop_id", ["whopMessageId"]),
 });

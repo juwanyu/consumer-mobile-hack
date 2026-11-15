@@ -20,7 +20,8 @@ sys.path.insert(0, HERE)
 import castlib  # noqa: E402
 from castlib import progress  # noqa: E402
 from character import build_character  # noqa: E402
-from animations import ACTION_PROPS, SLASH_IMPACT, SLASH_PERIOD, SLASH_RAISED, apply_action  # noqa: E402
+from animations import (ACTION_PROPS, RAISE_HOLD, RAISE_IMPACT, SLASH_IMPACT, SLASH_PERIOD, SLASH_RAISED,  # noqa: E402
+                        apply_action)
 import music  # noqa: E402
 
 SET_SPACING = 400.0
@@ -88,6 +89,7 @@ def sanitize_plan(plan, quality_override=None):
             "role": _str(member.get("role"), roles[i % len(roles)], 40),
             "look": member.get("look") if isinstance(member.get("look"), dict) else {},
             "npc": is_npc,
+            "outfit": member.get("outfit") if member.get("outfit") in lib.get("outfits", {}) else None,
         })
     if not cast:
         cast = [{"id": "c1", "name": "The Star", "role": roles[0], "look": {}, "npc": False}]
@@ -146,7 +148,7 @@ def sanitize_plan(plan, quality_override=None):
         d = shot.get("duration_s")
         duration = min(dmax, max(dmin, float(d))) if isinstance(d, (int, float)) and not isinstance(d, bool) and math.isfinite(d) else ddefault
         fx = shot.get("fx")
-        fx = [f for f in (fx if isinstance(fx, list) else [fx]) if f in fx_names and f != "none"][:3]
+        fx = [f for f in (fx if isinstance(fx, list) else [fx]) if f in fx_names and f != "none"][:4]
         hud = []
         for item in (shot.get("hud") if isinstance(shot.get("hud"), list) else [])[:3]:
             if isinstance(item, dict) and _str(item.get("label")):
@@ -160,6 +162,11 @@ def sanitize_plan(plan, quality_override=None):
         shots.append({"location": loc, "camera": {"mark": mark, "move": move}, "characters": chars, "dialogue": dialogue,
                       "duration_s": round(duration, 3), "fx": fx, "hud": hud, "caption": _str(shot.get("caption"), "", 80),
                       "narration": {"text": _str(narr.get("text"), "", 300), "audio_path": audio}})
+    music_path = plan.get("music_path")
+    music_path = os.path.abspath(os.path.expanduser(music_path)) if isinstance(music_path, str) and music_path.strip() else None
+    if music_path and not (os.path.isfile(music_path) and music_path.lower().endswith((".mp3", ".wav", ".m4a", ".aac", ".ogg", ".flac"))):
+        print(f"[cast] music_path not usable, using the synth bed: {music_path}", flush=True)
+        music_path = None
     if not shots:
         fallback = [("wide", "dolly_in", "wave"), ("medium", "orbit", "talk"), ("low_angle", "push_in", "celebrate")]
         for k, (mark, move, action) in enumerate(fallback[:max_shots]):
@@ -179,6 +186,7 @@ def sanitize_plan(plan, quality_override=None):
         "logline": _str(plan.get("logline"), "", 110),
         "cast": cast,
         "shots": shots,
+        "music_path": music_path,
     }
 
 
@@ -186,7 +194,13 @@ def sanitize_plan(plan, quality_override=None):
 
 def ensure_town():
     """Build town.blend if it is missing or predates a location added to the contract."""
-    if os.path.exists(castlib.TOWN_PATH):
+    import build_town
+    try:
+        with open(castlib.TOWN_PATH + ".version") as f:
+            current = f.read().strip() == str(build_town.TOWN_VERSION)
+    except OSError:
+        current = False
+    if os.path.exists(castlib.TOWN_PATH) and current:
         try:
             with bpy.data.libraries.load(castlib.TOWN_PATH, link=False) as (src, dst):
                 have = set(src.collections)
@@ -218,10 +232,10 @@ def configure_render(scene, quality, style="cinematic"):
     r.film_transparent = False
     ee = scene.eevee
     final = quality == "final"
-    ee.taa_render_samples = 24 if final else (4 if style == "punchy" else 6)
-    ee.use_shadows = True
+    ee.taa_render_samples = 12 if final else (2 if style == "punchy" else 6)
+    ee.use_shadows = final or style != "punchy"
     ee.shadow_ray_count = 2 if final else 1
-    ee.shadow_step_count = 4 if final else 1
+    ee.shadow_step_count = 2 if final else 1
     ee.shadow_resolution_scale = 1.0 if final else 0.75
     ee.use_raytracing = False
     ee.use_fast_gi = False
@@ -239,11 +253,35 @@ def make_world(scene):
     world = bpy.data.worlds.new("CastWorld")
     world.use_nodes = True
     scene.world = world
-    bg = next(n for n in world.node_tree.nodes if n.type == "BACKGROUND")
+    nt = world.node_tree
+    bg = next(n for n in nt.nodes if n.type == "BACKGROUND")
+    tc = nt.nodes.new("ShaderNodeTexCoord")
+    sep = nt.nodes.new("ShaderNodeSeparateXYZ")
+    nt.links.new(tc.outputs["Generated"], sep.inputs[0])
+    mr = nt.nodes.new("ShaderNodeMapRange")
+    mr.inputs["From Min"].default_value = -0.02
+    mr.inputs["From Max"].default_value = 0.55
+    nt.links.new(sep.outputs["Z"], mr.inputs["Value"])
+    hor = nt.nodes.new("ShaderNodeRGB")
+    hor.name = "horizon"
+    zen = nt.nodes.new("ShaderNodeRGB")
+    zen.name = "zenith"
+    mixn = nt.nodes.new("ShaderNodeMix")
+    mixn.data_type = "RGBA"
+    nt.links.new(mr.outputs["Result"], mixn.inputs["Factor"])
+    nt.links.new(hor.outputs[0], mixn.inputs[6])
+    nt.links.new(zen.outputs[0], mixn.inputs[7])
+    nt.links.new(mixn.outputs[2], bg.inputs["Color"])
     sun_data = bpy.data.lights.new("CastSun", "SUN")
     sun_data.angle = math.radians(3)
     sun = bpy.data.objects.new("CastSun", sun_data)
     scene.collection.objects.link(sun)
+    rim_data = bpy.data.lights.new("CastRim", "SUN")
+    rim_data.use_shadow = False
+    rim = bpy.data.objects.new("CastRim", rim_data)
+    rim.rotation_euler = (-math.radians(62), 0, math.radians(15))
+    scene.collection.objects.link(rim)
+    sun["rim"] = rim.name
     return bg, sun
 
 
@@ -269,7 +307,22 @@ def make_constant(*ids):
 
 
 def key_mood(bg, sun, coll, frame):
-    sky = castlib.color(coll.get("sky", "#8ECDF7"))
+    sky_hex = coll.get("sky", "#8ECDF7")
+    nt = bg.id_data
+    hor, zen = nt.nodes.get("horizon"), nt.nodes.get("zenith")
+    if hor and zen:
+        hor.outputs[0].default_value = castlib.color(castlib.shade(castlib.hex_to_srgb(sky_hex), 1.15))
+        zen.outputs[0].default_value = castlib.color(castlib.shade(castlib.hex_to_srgb(sky_hex), 0.42))
+        hor.outputs[0].keyframe_insert("default_value", frame=frame)
+        zen.outputs[0].keyframe_insert("default_value", frame=frame)
+    rim = bpy.data.objects.get(sun.get("rim", ""))
+    if rim:
+        rim.data.color = castlib.color(castlib.shade(castlib.hex_to_srgb(sky_hex), 1.0))[:3]
+        rim.data.color = tuple(0.5 + 0.5 * c for c in rim.data.color)
+        rim.data.energy = 2.2
+        rim.data.keyframe_insert("color", frame=frame)
+        rim.data.keyframe_insert("energy", frame=frame)
+    sky = castlib.color(sky_hex)
     bg.inputs["Color"].default_value = sky
     bg.inputs["Strength"].default_value = float(coll.get("ambient", 1.0))
     sun.data.color = castlib.color(coll.get("sun_color", "#FFFFFF"))[:3]
@@ -321,7 +374,7 @@ def make_camera(scene, name, eye, target, lens, move, f0, n):
     elif move == "push_in":
         base = cam_data.lens
         key(f0, eye, target, base)
-        key(f1, eye + d * 0.08, target, base * 1.3)
+        key(f1, eye + d * 0.06, target, base * 1.2)
     elif move == "orbit":
         flat = Vector((eye.x - target.x, eye.y - target.y))
         radius, a0 = flat.length, math.atan2(flat.y, flat.x)
@@ -393,10 +446,10 @@ def fx_magic_circle(scene, name, center, f0, n, fps):
         objs.append(obj)
     mb = castlib.MeshBuilder()
     rnd = random.Random(f0)
-    for j in range(26):
+    for j in range(12):
         a = rnd.uniform(0, 2 * math.pi)
         r = rnd.uniform(0.4, 1.7)
-        mb.box((r * math.cos(a), r * math.sin(a), rnd.uniform(0.1, 1.2)), (0.025, 0.025, rnd.uniform(0.25, 0.7)), "#CFEFFF", mat=1)
+        mb.box((r * math.cos(a), r * math.sin(a), rnd.uniform(0.1, 1.2)), (0.02, 0.02, rnd.uniform(0.12, 0.3)), "#CFEFFF", mat=1)
     motes = mb.to_object(f"{name}.motes", scene.collection)
     motes.location = center
     motes.keyframe_insert("location", frame=f0)
@@ -441,24 +494,293 @@ def fx_sparkles(scene, name, center, f0, n, fps):
     return obj
 
 
-def fx_excalibur(scene, rig, name, f0, n, fps):
-    """Golden beam on the sword hand, visible from the raise through the swing. Returns the impact frame."""
-    from character import attach
+def glow_material():
+    """Additive-looking soft glow: emission weighted by the colour attribute's alpha, alpha-blended."""
+    mat = bpy.data.materials.get("CastGlow")
+    if mat:
+        return mat
+    mat = bpy.data.materials.new("CastGlow")
+    mat.use_nodes = True
+    nt = mat.node_tree
+    for n_ in list(nt.nodes):
+        nt.nodes.remove(n_)
+    out = nt.nodes.new("ShaderNodeOutputMaterial")
+    attr = nt.nodes.new("ShaderNodeVertexColor")
+    attr.layer_name = "Col"
+    em = nt.nodes.new("ShaderNodeEmission")
+    em.inputs["Strength"].default_value = 4.0
+    tr = nt.nodes.new("ShaderNodeBsdfTransparent")
+    mix = nt.nodes.new("ShaderNodeMixShader")
+    nt.links.new(attr.outputs["Color"], em.inputs["Color"])
+    nt.links.new(attr.outputs["Alpha"], mix.inputs[0])
+    nt.links.new(tr.outputs[0], mix.inputs[1])
+    nt.links.new(em.outputs[0], mix.inputs[2])
+    nt.links.new(mix.outputs[0], out.inputs["Surface"])
+    try:
+        mat.surface_render_method = "BLENDED"
+    except Exception:
+        mat.blend_method = "BLEND"
+    mat.use_backface_culling = False
+    return mat
+
+
+def glow_strip(name, collection, length, width, col, y0=-1.0, cross=True, peak=0.85):
+    """Soft beam halo: crossed quads along -Y whose alpha fades to 0 at the edges."""
+    import bmesh
+    bm = bmesh.new()
+    lay = bm.loops.layers.float_color.new("Col")
+    rgb = castlib.color(col)[:3]
+    for axis in ((1, 0), (0, 1)) if cross else ((1, 0),):
+        cols = []
+        for k, (off, a) in enumerate(((-1, 0.0), (0, peak), (1, 0.0))):
+            row = []
+            for y in (y0, y0 - length):
+                v = bm.verts.new((off * width / 2 * axis[0], y, off * width / 2 * axis[1]))
+                row.append((v, a))
+            cols.append(row)
+        for c in range(2):
+            vs = [cols[c][0], cols[c + 1][0], cols[c + 1][1], cols[c][1]]
+            f = bm.faces.new([v for v, _ in vs])
+            for loop, (_, a) in zip(f.loops, vs):
+                loop[lay] = rgb + (a,)
+    mesh = bpy.data.meshes.new(name)
+    bm.to_mesh(mesh)
+    bm.free()
+    mesh.materials.append(glow_material())
+    obj = bpy.data.objects.new(name, mesh)
+    collection.objects.link(obj)
+    return obj
+
+
+def _vis_keys(obj, keys):
+    for f, hidden in keys:
+        obj.hide_render = hidden
+        obj.hide_viewport = hidden
+        obj.keyframe_insert("hide_render", frame=f)
+        obj.keyframe_insert("hide_viewport", frame=f)
+
+
+def fx_excalibur(scene, rig, name, f0, n, fps, action="slash"):
+    """Layered blade of light on the sword hand (white core, gold body, soft halo). Returns the impact frame."""
+    from character import HAND_R, attach
+    x, z = HAND_R[0], HAND_R[2]
     mb = castlib.MeshBuilder()
-    x, z = -0.525, 0.76
-    mb.cyl((x, -1.2 - 25, z), 1.1, 50, "#FFB627", segs=8, rot=(math.pi / 2, 0, 0), mat=1, radius2=1.6)
-    mb.cyl((x, -1.2 - 25, z), 0.45, 50.5, "#FFFBE6", segs=8, rot=(math.pi / 2, 0, 0), mat=1, radius2=0.7)
-    mb.box((x, -0.8, z), (0.2, 1.4, 0.35), "#FFF1A8", mat=1)
+    L = 70.0
+    mb.cyl((x, -1.3 - L / 2, z), 0.55, L, "#FFB627", segs=10, rot=(math.pi / 2, 0, 0), mat=1, radius2=1.4)
+    mb.cyl((x, -1.3 - L / 2, z), 0.2, L + 0.5, "#FFFFFF", segs=8, rot=(math.pi / 2, 0, 0), mat=1, radius2=0.5)
+    mb.box((x, -0.8, z), (0.22, 1.4, 0.36), "#FFF6C8", mat=1)
     beam = attach(rig, "arm_R", mb, name + ".excalibur", scene.collection, bevel=0.0)
-    on = f0 + int(SLASH_PERIOD * SLASH_RAISED * 0.6 * fps)
-    impact = f0 + int(SLASH_PERIOD * SLASH_IMPACT * fps)
-    off = min(f0 + n - 1, impact + int(0.35 * fps))
-    for f, hidden in ((f0, True), (on, False), (off, True)):
-        beam.hide_render = hidden
-        beam.hide_viewport = hidden
-        beam.keyframe_insert("hide_render", frame=f)
-        beam.keyframe_insert("hide_viewport", frame=f)
+    halo = glow_strip(name + ".halo", scene.collection, L, 7.0, "#FFC84A", y0=-0.6)
+    halo2 = glow_strip(name + ".halo2", scene.collection, L, 2.6, "#FFF1C0", y0=-0.6, peak=1.0)
+    from mathutils import Matrix
+    bone = rig.data.bones["arm_R"]
+    inv = (bone.matrix_local @ Matrix.Translation((0, bone.length, 0))).inverted()
+    for h in (halo, halo2):
+        h.parent = rig
+        h.parent_type = "BONE"
+        h.parent_bone = "arm_R"
+        h.matrix_parent_inverse = inv @ Matrix.Translation((x, 0, z))
+    if action == "raise_sword":
+        on = f0 + int(n * RAISE_HOLD[0] * 0.75)
+        impact = f0 + int(n * RAISE_IMPACT)
+        off = min(f0 + n - 1, impact + int(0.55 * fps))
+    else:
+        on = f0 + int(SLASH_PERIOD * SLASH_RAISED * 0.6 * fps)
+        impact = f0 + int(SLASH_PERIOD * SLASH_IMPACT * fps)
+        off = min(f0 + n - 1, impact + int(0.35 * fps))
+    for o in (beam, halo, halo2):
+        _vis_keys(o, ((f0, True), (on, False), (off, True)))
     return impact
+
+
+_FOUNDERS = {}
+
+
+def founder_variants(scene, total, fps):
+    """Three low-poly YC founder rigs (orange Y hoodie, lanyard, laptop) running in place, each in its own collection."""
+    if _FOUNDERS:
+        return _FOUNDERS["colls"]
+    looks = [
+        {"skin_tone": "#F1C27D", "hair_color": "#3B2417", "hair_style": "short", "shirt_color": "#F26522", "shirt_style": "hoodie", "pants_color": "#30343F"},
+        {"skin_tone": "#C68642", "hair_color": "#111111", "hair_style": "bun", "shirt_color": "#F47B36", "shirt_style": "hoodie", "pants_color": "#3A3F4B", "glasses": "square"},
+        {"skin_tone": "#8D5524", "hair_color": "#1B1B1B", "hair_style": "buzz", "shirt_color": "#E8591A", "shirt_style": "hoodie", "pants_color": "#2B2D42", "facial_hair": "beard"},
+    ]
+    colls = []
+    for k, look in enumerate(looks):
+        coll = bpy.data.collections.new(f"founders_v{k}")
+        scene.collection.children.link(coll)
+        home = Vector((-3000.0 - k * 10, 0.0, -500.0))
+        rig = build_character(look, f"founder{k}", collection=coll, props={"laptop", "lanyard", "ylogo"})
+        rig.location = home
+        bpy.context.view_layer.update()
+        apply_action(rig, "run", 1 - k * 5, total + 10, step=3, travel=0.0)
+        coll.instance_offset = home
+        colls.append(coll)
+    _FOUNDERS["colls"] = colls
+    return colls
+
+
+ARMY_ZONES = {
+    "capy_castle": ((-16.0, 16.0), (2.5, 13.0), 0.0, None, 3.2),
+    "castle_wall": ((-12.0, 12.0), (-24.0, -8.0), -9.0, (0.0, 1.0), 2.6),
+}
+
+
+def fx_army(scene, name, loc, offset, f0, n, fps, total, hero, fall_frame=None, count=60):
+    zone = ARMY_ZONES.get(loc, ((-12.0, 12.0), (5.0, 16.0), 0.0, (0.0, -1.0), 2.8))
+    (x0, x1), (y0, y1), gz, d, speed = zone
+    converge = d is None
+    colls = founder_variants(scene, total, fps)
+    rnd = random.Random(f0)
+    epi = Vector((hero.x, hero.y, gz)) if loc != "castle_wall" else offset + Vector((0, -16.0, gz))
+    for k in range(count):
+        e = bpy.data.objects.new(f"{name}.founder{k}", None)
+        e.instance_type = "COLLECTION"
+        e.instance_collection = colls[k % len(colls)]
+        scene.collection.objects.link(e)
+        lx = rnd.uniform(x0, x1)
+        if converge and abs(lx) < 2.5:
+            lx = math.copysign(2.5 + abs(lx) * 3, lx or 1.0)
+        p0 = offset + Vector((lx, rnd.uniform(y0, y1), gz))
+        d = Vector((-math.copysign(1.0, lx), 0.25, 0)).normalized() if converge else Vector((zone[3][0], zone[3][1], 0)).normalized()
+        heading = math.atan2(d.x, -d.y)
+        sp = speed * rnd.uniform(0.8, 1.2)
+        rot = (0.0, 0.0, heading + rnd.uniform(-0.25, 0.25))
+        def at(f):
+            return p0 + d * sp * (f - f0) / fps
+        e.location, e.rotation_euler = at(f0), rot
+        e.keyframe_insert("location", frame=f0)
+        e.keyframe_insert("rotation_euler", frame=f0)
+        if fall_frame is not None:
+            dist = (at(fall_frame).xy - epi.xy).length
+            ff = min(f0 + n - 6, fall_frame + int(dist / 30.0 * fps))
+            hit = at(ff)
+            e.location = hit
+            e.keyframe_insert("location", frame=ff)
+            e.keyframe_insert("rotation_euler", frame=ff)
+            away = (hit - epi)
+            away.z = 0
+            away = away.normalized() if away.length > 1e-3 else -d
+            e.location = hit + away * 2.2 + Vector((0, 0, 1.2))
+            e.keyframe_insert("location", frame=ff + 5)
+            e.location = hit + away * 3.4
+            e.rotation_euler = (-1.45, rnd.uniform(-0.4, 0.4), rot[2])
+            e.keyframe_insert("location", frame=ff + 10)
+            e.keyframe_insert("rotation_euler", frame=ff + 10)
+        else:
+            e.location = at(f0 + n)
+            e.keyframe_insert("location", frame=f0 + n)
+        _key_linear(e)
+    return epi
+
+
+def fx_shockwave(scene, name, center, f, fps):
+    mb = castlib.MeshBuilder()
+    for k in range(40):
+        a = 2 * math.pi * k / 40
+        mb.box((math.cos(a), math.sin(a), 0.15), (0.06, 0.2, 0.25), "#FFF3C4", rot=(0, 0, a), mat=1)
+    ring = mb.to_object(name + ".shockwave", scene.collection)
+    ring.location = center
+    for fr, sc in ((f - 1, 0.0), (f, 0.5), (f + 14, 28.0), (f + 15, 0.0)):
+        ring.scale = (sc, sc, 1.0 + sc * 0.05 if sc else 0.0)
+        ring.keyframe_insert("scale", frame=fr)
+    halo = glow_strip(name + ".shock_glow", scene.collection, 2.0, 2.0, "#FFE7A0", y0=1.0, cross=False, peak=0.0)
+    return ring
+
+
+def fx_embers(scene, name, center, f0, n, fps):
+    mb = castlib.MeshBuilder()
+    rnd = random.Random(f0 + 11)
+    for k in range(70):
+        a = rnd.uniform(0, 2 * math.pi)
+        r = rnd.uniform(0.8, 7.0)
+        mb.box((r * math.cos(a), r * math.sin(a) + 1.0, rnd.uniform(0.0, 5.0)), (0.04, 0.04, 0.04),
+               rnd.choice(["#FF8A1F", "#FFB347", "#FF5E1A", "#FFD27A"]), rot=(rnd.random(), rnd.random(), 0), mat=1)
+    obj = mb.to_object(name + ".embers", scene.collection)
+    obj.location = center
+    obj.keyframe_insert("location", frame=f0)
+    obj.keyframe_insert("rotation_euler", frame=f0)
+    obj.location = center + Vector((0.6, 0, 2.2))
+    obj.rotation_euler = (0, 0, 0.25)
+    obj.keyframe_insert("location", frame=f0 + n)
+    obj.keyframe_insert("rotation_euler", frame=f0 + n)
+    _key_linear(obj)
+    return obj
+
+
+TALKY = {"celebrate", "scared", "raise_sword", "charge"}
+
+
+def speaker_for(shot, chars):
+    """Who is talking in this shot: dialogue speaker, narration.speaker_cast_id, or a quoted caption's NPC/first character."""
+    dlg = shot.get("dialogue") or {}
+    narr = shot.get("narration") or {}
+    for cid in (dlg.get("speaker_cast_id"), narr.get("speaker_cast_id")):
+        if cid and any(c["cast_id"] == cid for c in chars):
+            return cid
+    text = (shot.get("caption") or "") + " " + (narr.get("text") or "")
+    if any(q in text for q in ("\u201c", "\"", "\u300c")) and chars:
+        return chars[0]["cast_id"]
+    return None
+
+
+def animate_face(rig, f0, n, fps, talk_frames=0, open_whole=False, seed=0):
+    lids = bpy.data.objects.get(rig.get("lids", ""))
+    mouth = bpy.data.objects.get(rig.get("mouth_open", ""))
+    rnd = random.Random(seed)
+    if lids:
+        lids.hide_render = True
+        lids.keyframe_insert("hide_render", frame=f0)
+        f = f0 + rnd.randint(int(0.5 * fps), int(1.4 * fps))
+        while f < f0 + n - 3:
+            lids.hide_render = False
+            lids.keyframe_insert("hide_render", frame=f)
+            lids.hide_render = True
+            lids.keyframe_insert("hide_render", frame=f + 3)
+            f += rnd.randint(int(1.4 * fps), int(2.8 * fps))
+    if mouth:
+        mouth.hide_render = not open_whole
+        mouth.keyframe_insert("hide_render", frame=f0)
+        f, end = f0 + 2, min(f0 + n - 1, f0 + talk_frames)
+        while talk_frames and f < end:
+            mouth.hide_render = False
+            mouth.keyframe_insert("hide_render", frame=f)
+            mouth.hide_render = True
+            f += rnd.choice((3, 3, 4, 5))
+            mouth.keyframe_insert("hide_render", frame=min(f, end))
+            f += rnd.choice((2, 2, 3))
+        if talk_frames:
+            mouth.hide_render = not open_whole
+            mouth.keyframe_insert("hide_render", frame=end + 1)
+
+
+# camera framing: (visible height m, look-at z, camera z, lens mm, camera x offset)
+FRAMING = {
+    "wide": (6.0, 2.4, 2.6, 30, 0.0),
+    "medium": (2.7, 1.32, 1.55, 40, 0.0),
+    "closeup": (1.8, 1.62, 1.72, 55, 0.0),
+    "low_angle": (3.1, 1.45, 0.35, 26, 0.7),
+    "overhead": (4.0, 0.8, 7.5, 32, 0.0),
+}
+
+
+def frame_subjects(mark, positions, focus=None):
+    """Eye/target/lens that fit the characters inside the phone-safe area (82% width, top 12% clear)."""
+    h, tz, cz, lens, cx = FRAMING.get(mark, FRAMING["wide"])
+    pts = [focus] if (mark == "closeup" and focus is not None) else positions
+    xs = [p.x for p in pts]
+    c = Vector((sum(xs) / len(xs), sum(p.y for p in pts) / len(pts), 0))
+    width = (max(xs) - min(xs)) + (1.1 if mark != "closeup" else 0.7)
+    h = max(h, width / (0.5625 * 0.8))
+    if mark != "closeup" and len(pts) > 1:
+        tz = max(tz, h * 0.42)
+    d = h * lens / 24.0
+    if mark == "overhead":
+        eye = c + Vector((0, -d * 0.45, d * 0.9))
+    else:
+        eye = c + Vector((cx * d / 4, -d, cz))
+    target = c + Vector((0, 0, tz))
+    return eye, target, lens
 
 
 def build_scene(plan, progress_file=None, offset_frames=0):
@@ -473,6 +795,8 @@ def build_scene(plan, progress_file=None, offset_frames=0):
     nshots = len(plan["shots"])
     progress("building_set", 2, 0, nshots, progress_file)
     counts = shot_frame_counts(plan, fps)
+    total_frames = sum(counts)
+    _FOUNDERS.clear()
     colls = load_locations([s["location"] for s in plan["shots"]])
     bg, sun = make_world(scene)
     cast = {c["id"]: c for c in plan["cast"]}
@@ -489,6 +813,7 @@ def build_scene(plan, progress_file=None, offset_frames=0):
         inst.instance_collection = coll
         inst.location = offset
         scene.collection.objects.link(inst)
+        print(f"STAGE Lighting the set: shot {i + 1}/{nshots} {coll.get('label', loc)}", flush=True)
         key_mood(bg, sun, coll, f0)
         progress("building_set", 3 + 32 * (i + 0.5) / nshots, i + 1, nshots, progress_file, location=loc)
 
@@ -497,19 +822,28 @@ def build_scene(plan, progress_file=None, offset_frames=0):
 
         fx = shot.get("fx") or []
         shot_rigs = []
+        print(f"STAGE Building characters: shot {i + 1}/{nshots}", flush=True)
         for ch in shot["characters"]:
             member = cast[ch["cast_id"]]
             mark = obj("mark", ch["mark"])
-            pos = (mark.location if mark else Vector((0, 0, 0))) + offset
+            pos = (mark.location if mark else Vector((0, 0, 0))).copy()
+            if plan.get("style") == "punchy" and ch["mark"] in ("left", "right"):
+                pos = Vector((pos.x * 0.52, pos.y + 0.7, pos.z))
+            pos = pos + offset
             props = {ACTION_PROPS[ch["action"]]} if ch["action"] in ACTION_PROPS else set()
             if "excalibur" in fx and member.get("look", {}).get("accessory") == "sword":
                 props.add("sword")
-            rig = build_character(member["look"], f"s{i + 1}.{member['id']}", variant=variant[member["id"]], props=props)
+            rig = build_character(member["look"], f"s{i + 1}.{member['id']}", variant=variant[member["id"]], props=props,
+                                  outfit=member.get("outfit") if loc != "yc_hq" else None)
             rig.location = pos
             rig.rotation_euler = (0.0, 0.0, MARK_YAW.get(ch["mark"], 0.0))
             bpy.context.view_layer.update()
-            apply_action(rig, ch["action"], f0, shot_frames)
+            apply_action(rig, ch["action"], f0, shot_frames, travel=0.0 if ch["action"] == "charge" else 0.35 if plan.get("style") == "punchy" else 1.0)
             rigs.append(rig)
+            talking = speaker_for(shot, shot["characters"]) == ch["cast_id"]
+            talk_s = shot.get("_audio_s") or len((shot.get("narration") or {}).get("text") or shot.get("caption") or "") / 14.0
+            animate_face(rig, f0, shot_frames, fps, int(talk_s * fps) if talking else 0,
+                         open_whole=ch["action"] in TALKY, seed=i * 7 + len(rigs))
             shot_rigs.append((ch, rig, props))
         progress("rigging", 3 + 32 * (i + 1) / nshots, i + 1, nshots, progress_file)
 
@@ -523,22 +857,71 @@ def build_scene(plan, progress_file=None, offset_frames=0):
         if "sparkles" in fx:
             fx_sparkles(scene, f"shot{i + 1}", center, f0, shot_frames, fps)
         if "excalibur" in fx and shot_rigs:
-            wielder = next((r for c, r, p in shot_rigs if c["action"] == "slash"), None) \
-                or next((r for c, r, p in shot_rigs if "sword" in p), shot_rigs[0][1])
-            ev["impact"] = fx_excalibur(scene, wielder, f"shot{i + 1}", f0, shot_frames, fps)
+            wc = next(((c, r) for c, r, p in shot_rigs if c["action"] in ("raise_sword", "slash")), None) \
+                or next(((c, r) for c, r, p in shot_rigs if "sword" in p), (shot_rigs[0][0], shot_rigs[0][1]))
+            ev["impact"] = fx_excalibur(scene, wc[1], f"shot{i + 1}", f0, shot_frames, fps, wc[0]["action"])
+        ev["clash"] = []
+        for c, r, p in shot_rigs:
+            if c["action"] == "slash":
+                ev["clash"] += [f0 + int((k * SLASH_PERIOD + SLASH_PERIOD * SLASH_IMPACT) * fps)
+                                for k in range(3) if (k * SLASH_PERIOD + SLASH_PERIOD * SLASH_IMPACT) * fps < shot_frames]
+            if c["action"] == "block":
+                ev["clash"] += [f0 + int(h * fps) for h in (0.45, 1.2, 1.8) if h * fps < shot_frames]
+        hero_pos = shot_rigs[0][1].location.copy() if shot_rigs else center
+        if "army" in fx:
+            fall = ev.get("impact", f0 + shot_frames // 2) if "army_fall" in fx else None
+            epi = fx_army(scene, f"shot{i + 1}", loc, offset, f0, shot_frames, fps, total_frames, hero_pos, fall)
+            ev["army"] = True
+            if "shockwave" in fx:
+                fx_shockwave(scene, f"shot{i + 1}", epi + Vector((0, 0, 0.05)), fall or f0 + shot_frames // 2, fps)
+        elif "shockwave" in fx:
+            fx_shockwave(scene, f"shot{i + 1}", hero_pos, ev.get("impact", f0 + shot_frames // 3), fps)
+        if "embers" in fx:
+            fx_embers(scene, f"shot{i + 1}", center, f0, shot_frames, fps)
         events.append(ev)
 
         cam_mark = obj("cam", shot["camera"]["mark"])
-        eye = (cam_mark.location if cam_mark else Vector((0, -12, 3))) + offset
-        target = Vector(cam_mark["target"] if cam_mark and "target" in cam_mark else (0, 0, 1.2)) + offset
-        lens = float(cam_mark.get("lens", 30.0)) if cam_mark else 30.0
-        cam = make_camera(scene, f"shot{i + 1}.cam", eye, target, lens, shot["camera"]["move"], f0, shot_frames)
+        positions = [r.location.copy() for _, r, _ in shot_rigs]
+        for (_, r, _), p in zip(shot_rigs, positions):
+            p.z = 0.0
+        if positions:
+            spk = speaker_for(shot, shot["characters"])
+            focus = next((r.location.copy() for c, r, _ in shot_rigs if c["cast_id"] == spk), None) \
+                or next((r.location.copy() for c, r, _ in shot_rigs if c["mark"] == "center"), positions[0])
+            focus.z = 0.0
+            eye, target, lens = frame_subjects(shot["camera"]["mark"], positions, focus)
+            move = shot["camera"]["move"]
+            if loc == "castle_wall" and "excalibur" in fx:
+                focus = focus if focus is not None else positions[0]
+                eye = focus + Vector((-9.0, -1.5, 1.8))
+                target = focus + Vector((0.0, -2.6, -0.6))
+                lens = 16
+            elif loc == "castle_wall" and "army" in fx:
+                focus = focus if focus is not None else positions[0]
+                eye = focus + Vector((1.6, 3.6, 4.4))
+                target = focus + Vector((-0.6, -9.0, -5.5))
+                lens = 20
+                move = "push_in" if move == "orbit" else move
+        else:
+            move = shot["camera"]["move"]
+            eye = (cam_mark.location if cam_mark else Vector((0, -12, 3))) + offset
+            target = Vector(cam_mark["target"] if cam_mark and "target" in cam_mark else (0, 0, 1.2)) + offset
+            lens = float(cam_mark.get("lens", 30.0)) if cam_mark else 30.0
+        cam = make_camera(scene, f"shot{i + 1}.cam", eye, target, lens, move, f0, shot_frames)
+        if plan.get("style") == "punchy" and (shot["camera"]["mark"] == "closeup" or
+                                              (shot["camera"]["mark"] == "medium" and plan["quality"] == "final")):
+            cam.data.dof.use_dof = True
+            cam.data.dof.focus_distance = (target - eye).length
+            cam.data.dof.aperture_fstop = 2.0 if shot["camera"]["mark"] == "closeup" else 3.5
         marker = scene.timeline_markers.new(f"shot{i + 1}", frame=f0)
         marker.camera = cam
         cameras.append(cam)
         shot_ranges.append((f0, shot_frames))
         f0 += shot_frames
     make_constant(scene.world.node_tree, sun, sun.data)
+    rim = bpy.data.objects.get(sun.get("rim", ""))
+    if rim:
+        make_constant(rim.data)
     scene.camera = cameras[0]
     scene.frame_start = 1
     total = f0 - 1
@@ -679,7 +1062,7 @@ def add_audio(se, plan, built, wav_path, channel):
             snd.frame_final_end = total + 1
     for i, ((f0, n), shot) in enumerate(zip(built["shots"], plan["shots"])):
         audio = (shot.get("narration") or {}).get("audio_path")
-        if not audio or not shot.get("_audio_s"):
+        if plan.get("_voice_mixed") or not audio or not shot.get("_audio_s"):
             continue
         try:
             v = se.strips.new_sound(name=f"narration{i + 1}", filepath=audio, channel=channel + 1, frame_start=f0)
@@ -781,6 +1164,22 @@ def _int(v):
         return None
 
 
+def make_vignette(tmpdir, w, h):
+    import numpy as np
+    yy, xx = np.mgrid[0:h, 0:w].astype(np.float32)
+    r = np.hypot((xx - w / 2) / (w / 2), (yy - h / 2) / (h / 2)) / 1.414
+    alpha = np.clip((r - 0.45) / 0.55, 0, 1) ** 1.6 * 0.6
+    rgba = np.zeros((h, w, 4), np.float32)
+    rgba[..., 3] = alpha
+    img = bpy.data.images.new("vignette", w, h, alpha=True)
+    img.pixels.foreach_set(rgba.ravel())
+    path = os.path.join(tmpdir, "vignette.png")
+    img.filepath_raw = path
+    img.file_format = "PNG"
+    img.save()
+    return path
+
+
 def make_speed_lines(tmpdir, w, h, variants=3):
     import numpy as np
     paths = []
@@ -797,7 +1196,7 @@ def make_speed_lines(tmpdir, w, h, variants=3):
             c = rng.integers(bins)
             width = rng.integers(1, 4)
             prof[np.arange(c - width, c + width + 1) % bins] = rng.uniform(0.55, 0.95)
-        inner = rng.uniform(0.2, 0.26)
+        inner = rng.uniform(0.27, 0.32)
         fall = np.clip((rad - inner) / 0.22, 0, 1)
         alpha = prof[idx] * fall
         rgba = np.zeros((h, w, 4), np.float32)
@@ -819,7 +1218,7 @@ def _speed_lines(se, paths, f0, n, channel, every=2):
         st = se.strips.new_image(name=f"speed{f}", filepath=p, channel=channel, frame_start=f)
         st.frame_final_duration = min(every, f0 + n - f)
         st.blend_type = "ALPHA_OVER"
-        st.blend_alpha = 0.75
+        st.blend_alpha = 0.55
 
 
 def _caption_chunks(text):
@@ -859,7 +1258,21 @@ def build_edit_punchy(plan, built, wav_path, tmpdir):
     main.scene_input = "CAMERA"
     if main.frame_final_end != total + 1:
         main.frame_final_end = total + 1
+    try:
+        cb = main.modifiers.new(name="grade", type="COLOR_BALANCE")
+        cb.color_balance.lift = (0.97, 0.98, 1.06)
+        cb.color_balance.gamma = (1.0, 1.0, 1.02)
+        cb.color_balance.gain = (1.08, 1.03, 0.97)
+    except Exception as e:
+        print(f"[cast] grade skipped: {e}", flush=True)
     ch = Channels(2)
+    try:
+        vig = se.strips.new_image(name="vignette", filepath=make_vignette(tmpdir, edit.render.resolution_x, edit.render.resolution_y),
+                                  channel=ch("vignette"), frame_start=1)
+        vig.frame_final_duration = total
+        vig.blend_type = "ALPHA_OVER"
+    except Exception as e:
+        print(f"[cast] vignette skipped: {e}", flush=True)
     for key in ("speed", "flash", "flash2", "title_dim", "hud0", "seal0", "sealfg0", "hud1", "seal1", "sealfg1",
                 "hud2", "seal2", "sealfg2", "caption", "title", "title_rule", "logline", "powered", "credits", "title_flash"):
         ch(key)
@@ -908,7 +1321,8 @@ def build_edit_punchy(plan, built, wav_path, tmpdir):
                 else:
                     segs.append([f0 + k, txt, 1])
             start_rest = f0 + len(steps)
-            segs.append([start_rest, value if cur is None else str(cur), f_end - start_rest])
+            hud_end = title_f if (i == last and title_f) else f_end
+            segs.append([start_rest, value if cur is None else str(cur), max(1, hud_end - start_rest)])
             chan = ch(f"hud{j}")
             for k, (sf, txt, ln) in enumerate(segs):
                 t = _plain_text(se, f"hud{i + 1}_{j}_{k}", f"{label}  {txt}", sf, ln, chan, 0.12, y, size,
@@ -918,10 +1332,10 @@ def build_edit_punchy(plan, built, wav_path, tmpdir):
             y -= 0.052
             if label in seal_max and cur is not None:
                 schan = ch(f"seal{j}")
-                _plain_text(se, f"sealbg{i + 1}_{j}", "\u2756" * seal_max[label], f0, n, schan, 0.125, y, 52,
+                _plain_text(se, f"sealbg{i + 1}_{j}", "\u2756" * seal_max[label], f0, max(1, hud_end - f0), schan, 0.125, y, 52,
                             color=(0.25, 0.05, 0.08, 0.85), anchor_y="TOP", outline=0.04)
                 if cur > 0:
-                    t = _plain_text(se, f"seal{i + 1}_{j}", "\u2756" * cur, f0, n, ch(f"sealfg{j}"), 0.125, y, 52,
+                    t = _plain_text(se, f"seal{i + 1}_{j}", "\u2756" * cur, f0, max(1, hud_end - f0), ch(f"sealfg{j}"), 0.125, y, 52,
                                     color=SEAL_RED, anchor_y="TOP", outline=0.04)
                     if prev is not None and cur != prev:
                         _pop(t, f0 + min(int(0.6 * fps), n - 4), 52, 1.3, 4)
@@ -941,7 +1355,7 @@ def build_edit_punchy(plan, built, wav_path, tmpdir):
                 if k == len(chunks) - 1:
                     ln = max(4, c_end - acc)
                 size = min(92, int(1150 / max(4, len(text))))
-                t = _plain_text(se, f"cap{i + 1}_{k}", text, acc, ln, ch("caption"), 0.5, 0.3, size,
+                t = _plain_text(se, f"cap{i + 1}_{k}", text, acc, ln, ch("caption"), 0.5, 0.235, size,
                                 color=YELLOW if k == key else (1, 1, 1, 1), align="CENTER", outline=0.14)
                 _pop(t, acc, size)
                 acc += ln
@@ -1004,8 +1418,40 @@ def configure_output(edit, out_path, quality):
     r.use_compositing = False
 
 
-def render_plan(plan, out_path, progress_file=None):
+def stage(msg):
+    print(f"STAGE {msg}", flush=True)
+
+
+def make_previews(built, preview_dir):
+    """Render one ~360px JPEG per shot (mid-shot, 3D only) up front; announced as each shot starts rendering."""
+    scene = built["scene"]
+    r = scene.render
+    saved = (r.resolution_percentage, r.filepath, r.image_settings.file_format, scene.eevee.taa_render_samples,
+             scene.frame_current)
+    paths = {}
+    try:
+        os.makedirs(preview_dir, exist_ok=True)
+        r.resolution_percentage = 50
+        r.image_settings.file_format = "JPEG"
+        r.image_settings.quality = 80
+        scene.eevee.taa_render_samples = 2
+        for k, (f0, n) in enumerate(built["shots"]):
+            out = os.path.abspath(os.path.join(preview_dir, f"shot{k + 1}.jpg"))
+            scene.frame_set(f0 + n // 2)
+            r.filepath = out
+            bpy.ops.render.render(write_still=True, scene=scene.name)
+            paths[k + 1] = out
+    except Exception as e:
+        print(f"[cast] previews failed: {e}", flush=True)
+    finally:
+        (r.resolution_percentage, r.filepath, r.image_settings.file_format, scene.eevee.taa_render_samples) = saved[:4]
+        scene.frame_set(saved[4])
+    return paths
+
+
+def render_plan(plan, out_path, progress_file=None, preview_dir=None):
     t0 = time.time()
+    stage("Building the set")
     ensure_town()
     built = build_scene(plan, progress_file)
     total = built["frames"]
@@ -1013,18 +1459,29 @@ def render_plan(plan, out_path, progress_file=None):
     wav_path = os.path.join(tempfile.gettempdir(), f"cast_music_{os.getpid()}.wav")
     try:
         fps = built["scene"].render.fps
-        duck = [((f0 - 1) / fps, (f0 - 1) / fps + shot["_audio_s"]) for (f0, _), shot in zip(built["shots"], plan["shots"]) if shot.get("_audio_s")]
-        music.write_music(wav_path, plan["genre"], seconds, [(f0 - 1) / fps for f0, _ in built["shots"][1:]],
-                          duck=duck, punchy=plan.get("style") == "punchy")
+        narration = [((f0 - 1) / fps, shot["narration"]["audio_path"], n / fps)
+                     for (f0, n), shot in zip(built["shots"], plan["shots"]) if shot.get("_audio_s")]
+        evs = built["events"]
+        events = {"impacts": [(e["impact"] - 1) / fps for e in evs if e.get("impact")],
+                  "clashes": [(c - 1) / fps for e in evs for c in e.get("clash", ())],
+                  "army": [((f0 - 1) / fps, (f0 - 1 + n) / fps) for (f0, n), e in zip(built["shots"], evs) if e.get("army")]}
+        levels = music.write_mix(wav_path, plan["genre"], seconds, [(f0 - 1) / fps for f0, _ in built["shots"][1:]],
+                                 narration=narration, events=events, punchy=plan.get("style") == "punchy",
+                                 music_path=plan.get("music_path"))
+        plan["_voice_mixed"] = True
+        print(f"AUDIO {json.dumps(levels)}", flush=True)
     except Exception:
         traceback.print_exc()
         wav_path = None
+    stage("Mixing audio")
     tmpdir = tempfile.mkdtemp(prefix="cast_")
     edit = build_edit_punchy(plan, built, wav_path, tmpdir) if plan.get("style") == "punchy" else build_edit(plan, built, wav_path)
     configure_output(edit, out_path, plan["quality"])
     os.makedirs(os.path.dirname(os.path.abspath(out_path)) or ".", exist_ok=True)
     progress("rendering", 40, None, None, progress_file, frame=0, frames=total)
-    state = {"n": 0, "last": -1}
+    previews = make_previews(built, preview_dir) if preview_dir else {}
+    state = {"n": 0, "last": -1, "shot": 0}
+    nshots = len(built["shots"])
 
     def on_frame(scene, *_):
         if scene.name != edit.name:
@@ -1032,6 +1489,11 @@ def render_plan(plan, out_path, progress_file=None):
         state["n"] += 1
         pct = 40 + 59 * state["n"] / total
         shot = sum(1 for f0, _ in built["shots"] if f0 <= scene.frame_current) or 1
+        if shot != state["shot"]:
+            state["shot"] = shot
+            stage(f"Rendering shot {shot}/{nshots}")
+            if shot in previews:
+                print(f"PREVIEW {shot} {previews[shot]}", flush=True)
         if int(pct) != state["last"]:
             state["last"] = int(pct)
             progress("rendering", pct, shot, len(built["shots"]), progress_file, frame=state["n"], frames=total)
@@ -1040,6 +1502,7 @@ def render_plan(plan, out_path, progress_file=None):
     print(f"[cast] scene built in {time.time() - t0:.1f}s; rendering {total} frames", flush=True)
     bpy.ops.render.render(animation=True, scene=edit.name)
     bpy.app.handlers.render_post.remove(on_frame)
+    stage("Encoding video")
     if wav_path and os.path.exists(wav_path):
         os.remove(wav_path)
     import shutil
@@ -1050,14 +1513,18 @@ def render_plan(plan, out_path, progress_file=None):
 
 def parse_args(argv):
     args = argv[argv.index("--") + 1:] if "--" in argv else []
-    opts = {"quality": None, "progress_file": None}
+    opts = {"quality": None, "progress_file": None, "preview_dir": None}
     pos = []
     i = 0
     while i < len(args):
         a = args[i]
-        if a in ("--quality", "--progress-file") and i + 1 < len(args):
-            opts["quality" if a == "--quality" else "progress_file"] = args[i + 1]
+        if a in ("--quality", "--progress-file", "--preview-dir") and i + 1 < len(args):
+            opts[a[2:].replace("-", "_")] = args[i + 1]
             i += 2
+            continue
+        if a.startswith("--preview-dir="):
+            opts["preview_dir"] = a.split("=", 1)[1]
+            i += 1
             continue
         if a.startswith("--quality="):
             opts["quality"] = a.split("=", 1)[1]
@@ -1084,7 +1551,7 @@ def main():
     plan = sanitize_plan(raw, opts["quality"])
     print("[cast] plan: " + json.dumps(plan), flush=True)
     try:
-        render_plan(plan, out_path, opts["progress_file"])
+        render_plan(plan, out_path, opts["progress_file"], opts["preview_dir"])
     except Exception:
         traceback.print_exc()
         print("[cast] render failed; retrying with a minimal safe plan", flush=True)

@@ -8,6 +8,7 @@ import type { Id } from '../../../../convex/_generated/dataModel';
 import { BlockyCharacter } from '@/components/blocky-character';
 import { BigButton, Label, Screen } from '@/components/ui';
 import { addLocal } from '@/local';
+import { useMyId } from '@/me';
 import { colors, radius, type } from '@/theme';
 
 export default function Remix() {
@@ -16,11 +17,12 @@ export default function Remix() {
   const movie = useQuery(api.movies.get, { movieId: id });
   const ready = useQuery(api.casting.listReady);
   const remix = useMutation(api.movies.remix);
+  const ownerId = useMyId() ?? undefined;
   const [busy, setBusy] = useState<string | null>(null);
 
   const pick = async (castMemberId: Id<'castMembers'>) => {
     setBusy(castMemberId);
-    const movieId = await remix({ movieId: id, castMemberId });
+    const movieId = await remix({ movieId: id, castMemberId, ownerId });
     await addLocal('mine', movieId);
     router.replace({ pathname: movie?.reel ? '/movie/[id]/reel' : '/movie/[id]/story', params: { id: movieId } });
   };

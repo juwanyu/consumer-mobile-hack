@@ -67,7 +67,7 @@ def towns():
         _render_still(built["scene"], os.path.join(DOCS, f"town_{loc}.png"), 30)
 
 
-def _studio(width, height, quality="final"):
+def _studio(width, height, quality="final", bg="#BDE0FE", floor="#FFC8DD", wall="#CDB4DB"):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
     rsp.configure_render(scene, quality)
@@ -78,8 +78,8 @@ def _studio(width, height, quality="final"):
     sun.data.energy = 4.0
     sun.rotation_euler = (math.radians(45), 0, math.radians(-30))
     mb = castlib.MeshBuilder()
-    mb.box((0, 2, -0.1), (40, 30, 0.2), "#FFC8DD")
-    mb.box((0, 6, 5), (40, 0.4, 10), "#CDB4DB")
+    mb.box((0, 2, -0.1), (40, 30, 0.2), floor)
+    mb.box((0, 6, 5), (40, 0.4, 10), wall)
     mb.to_object("studio", scene.collection)
     return scene
 
@@ -128,6 +128,26 @@ def actions():
     _render_still(scene, os.path.join(DOCS, "actions.png"), frame)
 
 
+def char_closeups(plan_path=None):
+    import json
+    plan = json.load(open(plan_path or os.path.join(HERE, "fate_plan.json")))
+    shots = {"master": ("idle", "#3B2A5C"), "caster": ("film", "#1E4D5C"), "npc_saber": ("idle", "#1F2F5C")}
+    names = {"master": "justin", "caster": "harris", "npc_saber": "saber"}
+    for member in plan["cast"]:
+        cid = member["id"]
+        if cid not in names:
+            continue
+        act, bgc = shots[cid]
+        scene = _studio(900, 1200, floor=bgc, wall=bgc)
+        props = {"camera"} if act == "film" else ({"sword"} if cid == "npc_saber" else set())
+        rig = build_character(member["look"], "char_" + cid, props=props)
+        rig.rotation_euler = (0, 0, 0.25)
+        bpy.context.view_layer.update()
+        apply_action(rig, act, 1, 48)
+        _camera(scene, (0.35, -2.6, 1.75), (0.0, 0, 1.5), 40)
+        _render_still(scene, os.path.join(DOCS, f"char_{names[cid]}.png"), 20)
+
+
 def frame(mp4, frame_no, out):
     bpy.ops.wm.read_factory_settings(use_empty=True)
     scene = bpy.context.scene
@@ -152,5 +172,9 @@ if __name__ == "__main__":
     cmd = argv[0] if argv else "towns"
     if cmd == "frame":
         frame(argv[1], argv[2], argv[3])
+    elif cmd == "frames":
+        for spec in argv[2:]:
+            f, out = spec.split(":", 1)
+            frame(argv[1], f, out)
     else:
-        {"towns": towns, "characters": characters, "actions": actions}[cmd]()
+        {"towns": towns, "characters": characters, "actions": actions, "chars": char_closeups}[cmd]()

@@ -111,7 +111,7 @@ export default function ReelEditor() {
                 Beat {i + 1} · {library.locations[beat.location as keyof typeof library.locations]?.label ?? beat.location}
               </Text>
               <Text style={type.small}>
-                {beat.hud.map((h) => `${h.label} ${h.value}`).join('  ·  ')}  ·  fx: {beat.fx.replace('_', ' ')}
+                {beat.hud.map((h) => `${h.label} ${h.value}`).join('  ·  ')}  ·  fx: {[beat.fx].flat().join(', ').replace(/_/g, ' ')}
               </Text>
               <Label>Narrator</Label>
               <TextInput

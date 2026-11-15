@@ -9,12 +9,14 @@ import type { Id } from '../../../convex/_generated/dataModel';
 import { REEL_TEMPLATES } from '../../../convex/reels';
 import { Label, Screen } from '@/components/ui';
 import { addLocal } from '@/local';
+import { useMyId } from '@/me';
 import { GENRE_COLORS, GENRES, type GenreId } from '@/library';
 import { colors, radius, type } from '@/theme';
 
 export default function NewMovie() {
   const { castMemberId } = useLocalSearchParams<{ castMemberId: Id<'castMembers'> }>();
   const router = useRouter();
+  const ownerId = useMyId() ?? undefined;
   const create = useMutation(api.movies.create);
   const createReel = useMutation(api.movies.createReel);
   const [picking, setPicking] = useState<GenreId | null>(null);
@@ -25,7 +27,7 @@ export default function NewMovie() {
     setPicking(genre);
     setError(null);
     try {
-      const movieId = await create({ castMemberId, genre });
+      const movieId = await create({ castMemberId, genre, ownerId });
       await addLocal('mine', movieId);
       router.replace({ pathname: '/movie/[id]/story', params: { id: movieId } });
     } catch (e) {
@@ -38,7 +40,7 @@ export default function NewMovie() {
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
     setError(null);
     try {
-      const movieId = await createReel({ templateId, master: castMemberId });
+      const movieId = await createReel({ templateId, master: castMemberId, ownerId });
       await addLocal('mine', movieId);
       router.replace({ pathname: '/movie/[id]/reel', params: { id: movieId } });
     } catch (e) {

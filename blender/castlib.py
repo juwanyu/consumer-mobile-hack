@@ -57,20 +57,94 @@ def shade(value, factor):
     return tuple(max(0.0, min(1.0, c * factor)) for c in (r, g, b))
 
 
+def _toon_tree(mat):
+    """Cel shading: quantised diffuse light (keeps light colour), times the vertex colour, plus a rim."""
+    mat.use_nodes = True
+    nt = mat.node_tree
+    for n in list(nt.nodes):
+        nt.nodes.remove(n)
+    N, L = nt.nodes.new, nt.links.new
+    out = N("ShaderNodeOutputMaterial")
+    attr = N("ShaderNodeVertexColor")
+    attr.layer_name = "Col"
+    diff = N("ShaderNodeBsdfDiffuse")
+    diff.inputs["Color"].default_value = (1, 1, 1, 1)
+    s2r = N("ShaderNodeShaderToRGB")
+    L(diff.outputs[0], s2r.inputs[0])
+    bw = N("ShaderNodeRGBToBW")
+    L(s2r.outputs["Color"], bw.inputs[0])
+    scale = N("ShaderNodeMath")
+    scale.operation = "MULTIPLY"
+    scale.inputs[1].default_value = 0.75
+    L(bw.outputs[0], scale.inputs[0])
+    ramp = N("ShaderNodeValToRGB")
+    ramp.color_ramp.interpolation = "CONSTANT"
+    els = ramp.color_ramp.elements
+    els[0].position, els[0].color = 0.0, (0.30, 0.30, 0.36, 1)
+    els[1].position, els[1].color = 0.13, (0.62, 0.62, 0.66, 1)
+    e = els.new(0.36)
+    e.color = (0.9, 0.9, 0.9, 1)
+    e = els.new(0.75)
+    e.color = (1.0, 1.0, 1.0, 1)
+    L(scale.outputs[0], ramp.inputs[0])
+    q = N("ShaderNodeVectorMath")
+    q.operation = "SCALE"
+    q.inputs["Scale"].default_value = 1.35
+    L(ramp.outputs["Color"], q.inputs[0])
+    mx = N("ShaderNodeMath")
+    mx.operation = "MAXIMUM"
+    mx.inputs[1].default_value = 0.05
+    L(bw.outputs[0], mx.inputs[0])
+    inv = N("ShaderNodeMath")
+    inv.operation = "DIVIDE"
+    inv.inputs[0].default_value = 1.0
+    L(mx.outputs[0], inv.inputs[1])
+    tint = N("ShaderNodeVectorMath")
+    tint.operation = "SCALE"
+    L(s2r.outputs["Color"], tint.inputs[0])
+    L(inv.outputs[0], tint.inputs["Scale"])
+    tmix = N("ShaderNodeMix")
+    tmix.data_type = "RGBA"
+    tmix.inputs["Factor"].default_value = 0.55
+    tmix.inputs[6].default_value = (1, 1, 1, 1)
+    L(tint.outputs[0], tmix.inputs[7])
+    m1 = N("ShaderNodeVectorMath")
+    m1.operation = "MULTIPLY"
+    L(attr.outputs["Color"], m1.inputs[0])
+    L(tmix.outputs[2], m1.inputs[1])
+    m2 = N("ShaderNodeVectorMath")
+    m2.operation = "MULTIPLY"
+    L(m1.outputs[0], m2.inputs[0])
+    L(q.outputs[0], m2.inputs[1])
+    lw = N("ShaderNodeLayerWeight")
+    lw.inputs["Blend"].default_value = 0.3
+    gt = N("ShaderNodeMath")
+    gt.operation = "GREATER_THAN"
+    gt.inputs[1].default_value = 0.8
+    L(lw.outputs["Facing"], gt.inputs[0])
+    rim = N("ShaderNodeVectorMath")
+    rim.operation = "SCALE"
+    L(tmix.outputs[2], rim.inputs[0])
+    rs = N("ShaderNodeMath")
+    rs.operation = "MULTIPLY"
+    rs.inputs[1].default_value = 0.22
+    L(gt.outputs[0], rs.inputs[0])
+    L(rs.outputs[0], rim.inputs["Scale"])
+    add = N("ShaderNodeVectorMath")
+    add.operation = "ADD"
+    L(m2.outputs[0], add.inputs[0])
+    L(rim.outputs[0], add.inputs[1])
+    em = N("ShaderNodeEmission")
+    L(add.outputs[0], em.inputs["Color"])
+    L(em.outputs[0], out.inputs["Surface"])
+
+
 def materials():
-    """Two shared materials driven by the 'Col' color attribute: glossy plastic and neon emission."""
+    """Shared materials driven by the 'Col' color attribute: toon (slot 0), neon (slot 1), outline (slot 2)."""
     plastic = bpy.data.materials.get("CastPlastic")
     if plastic is None:
         plastic = bpy.data.materials.new("CastPlastic")
-        plastic.use_nodes = True
-        nt = plastic.node_tree
-        bsdf = next(n for n in nt.nodes if n.type == "BSDF_PRINCIPLED")
-        attr = nt.nodes.new("ShaderNodeVertexColor")
-        attr.layer_name = "Col"
-        nt.links.new(attr.outputs["Color"], bsdf.inputs["Base Color"])
-        bsdf.inputs["Roughness"].default_value = 0.38
-        if "Specular IOR Level" in bsdf.inputs:
-            bsdf.inputs["Specular IOR Level"].default_value = 0.6
+        _toon_tree(plastic)
     neon = bpy.data.materials.get("CastNeon")
     if neon is None:
         neon = bpy.data.materials.new("CastNeon")
@@ -87,6 +161,39 @@ def materials():
         nt.links.new(attr.outputs["Color"], em.inputs["Color"])
         nt.links.new(em.outputs["Emission"], out.inputs["Surface"])
     return plastic, neon
+
+
+def outline_material():
+    mat = bpy.data.materials.get("CastOutline")
+    if mat is None:
+        mat = bpy.data.materials.new("CastOutline")
+        mat.use_nodes = True
+        nt = mat.node_tree
+        for n in list(nt.nodes):
+            nt.nodes.remove(n)
+        out = nt.nodes.new("ShaderNodeOutputMaterial")
+        em = nt.nodes.new("ShaderNodeEmission")
+        em.inputs["Color"].default_value = (0.012, 0.01, 0.025, 1)
+        nt.links.new(em.outputs[0], out.inputs["Surface"])
+        mat.use_backface_culling = True
+    return mat
+
+
+def add_outline(obj, thickness=0.012):
+    """Inverted-hull outline: flipped solidify shell using the culled outline material."""
+    mesh = obj.data
+    while len(mesh.materials) < 2:
+        mesh.materials.append(materials()[len(mesh.materials)])
+    if len(mesh.materials) < 3:
+        mesh.materials.append(outline_material())
+    mod = obj.modifiers.new("Outline", "SOLIDIFY")
+    mod.thickness = thickness
+    mod.offset = 1.0
+    mod.use_flip_normals = True
+    mod.use_rim = False
+    mod.material_offset = 2
+    mod.use_even_offset = False
+    return mod
 
 
 def _matrix(center, rot):
@@ -114,6 +221,16 @@ class MeshBuilder:
         m = _matrix(center, rot) @ Matrix.Diagonal(Vector((size[0], size[1], size[2], 1.0)))
         res = bmesh.ops.create_cube(self.bm, size=1.0, matrix=m)
         self._paint(res["verts"], color(col), mat)
+
+    def rbox(self, center, size, col, radius=0.03, segments=2, rot=None, mat=0):
+        """Box with rounded (bevelled) edges."""
+        m = _matrix(center, rot) @ Matrix.Diagonal(Vector((size[0], size[1], size[2], 1.0)))
+        res = bmesh.ops.create_cube(self.bm, size=1.0, matrix=m)
+        verts = res["verts"]
+        self._paint(verts, color(col), mat)
+        edges = list({e for v in verts for e in v.link_edges})
+        bmesh.ops.bevel(self.bm, geom=list(verts) + edges, offset=min(radius, min(size) * 0.45),
+                        segments=segments, profile=0.5, affect="EDGES", clamp_overlap=True)
 
     def cyl(self, center, radius, depth, col, segs=8, rot=None, mat=0, radius2=None):
         res = bmesh.ops.create_cone(

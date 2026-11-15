@@ -1,12 +1,12 @@
 {
-  "version": 2,
+  "version": 3,
   "render": {
     "width": 720,
     "height": 1280,
     "fps": 24,
     "shot_seconds": 3,
     "max_shots": 3,
-    "reel_max_shots": 6,
+    "reel_max_shots": 8,
     "reel_shot_seconds": {
       "min": 1.5,
       "max": 4,
@@ -96,6 +96,15 @@
     },
     "summoning_room": {
       "label": "Summoning Room"
+    },
+    "yc_hq": {
+      "label": "YC HQ"
+    },
+    "capy_castle": {
+      "label": "Capy Castle"
+    },
+    "castle_wall": {
+      "label": "Castle Wall"
     }
   },
   "character_marks": [
@@ -137,7 +146,12 @@
     "sit",
     "summon",
     "slash",
-    "film"
+    "film",
+    "charge",
+    "raise_sword",
+    "block",
+    "thumbs_up",
+    "banner"
   ],
   "genres": {
     "heist": {
@@ -233,9 +247,9 @@
         "Archer"
       ],
       "default_locations": [
-        "summoning_room",
-        "rooftop",
-        "main_street"
+        "yc_hq",
+        "capy_castle",
+        "castle_wall"
       ]
     }
   },
@@ -245,7 +259,11 @@
     "flash",
     "sparkles",
     "speed_lines",
-    "excalibur"
+    "excalibur",
+    "army",
+    "army_fall",
+    "shockwave",
+    "embers"
   ],
   "styles": {
     "cinematic": {
@@ -273,6 +291,12 @@
         "accessory": "sword",
         "vibe": "A knight-king who answers the summons."
       }
+    }
+  },
+  "outfits": {
+    "saber": {
+      "label": "Saber armour",
+      "description": "Blue armoured dress, cape and sword over the cast member's own face and hair"
     }
   }
 }

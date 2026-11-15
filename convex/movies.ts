@@ -7,7 +7,7 @@ import { REEL_TEMPLATES, type SlotId } from "./reels";
 import library from "../shared/assetLibrary.json";
 import { buildShotPlan, cleanStory, isGenre, storyValidator, templateStory, type PlanCast } from "./story";
 
-async function castWithLooks(ctx: QueryCtx, movie: Doc<"movies">) {
+export async function castWithLooks(ctx: QueryCtx, movie: Doc<"movies">) {
   return await Promise.all(
     movie.cast.map(async ({ castMemberId, role, slot }) => {
       const member = await ctx.db.get(castMemberId);
@@ -26,8 +26,8 @@ async function okToPostFor(ctx: QueryCtx, castMemberIds: Id<"castMembers">[]) {
 }
 
 export const create = mutation({
-  args: { castMemberId: v.id("castMembers"), genre: v.string() },
-  handler: async (ctx, { castMemberId, genre }) => {
+  args: { castMemberId: v.id("castMembers"), genre: v.string(), ownerId: v.optional(v.id("users")) },
+  handler: async (ctx, { castMemberId, genre, ownerId }) => {
     if (!isGenre(genre)) throw new Error("Unknown genre");
     const member = await ctx.db.get(castMemberId);
     if (!member || member.status !== "ready") throw new Error("This cast member isn't ready yet");
@@ -35,6 +35,7 @@ export const create = mutation({
       genre,
       cast: [{ castMemberId, role: library.genres[genre].roles[0] }],
       story: templateStory(genre),
+      ownerId,
       status: "draft",
       attempts: 0,
       okToPost: await okToPostFor(ctx, [castMemberId]),
@@ -54,6 +55,11 @@ export const get = query({
     return {
       ...rest,
       castDetails: await castWithLooks(ctx, movie),
+      owner: await ownerCard(ctx, movie.ownerId),
+      previewUrls: (await Promise.all((movie.previews ?? []).map(async (p) => ({ shot: p.shot, url: await ctx.storage.getUrl(p.storageId) })))).filter(
+        (p): p is { shot: number; url: string } => !!p.url,
+      ),
+      shotCount: Array.isArray(movie.plan?.shots) ? movie.plan.shots.length : movie.reel?.beats.length ?? movie.story.shots.length,
       videoUrl,
       template: template ? { id: template.id, label: template.label, slots: template.slots, beatCount: template.beats.length } : null,
     };
@@ -82,8 +88,8 @@ export const setRole = mutation({
 });
 
 export const createReel = mutation({
-  args: { templateId: v.string(), master: v.id("castMembers"), caster: v.optional(v.id("castMembers")) },
-  handler: async (ctx, { templateId, master, caster }) => {
+  args: { templateId: v.string(), master: v.id("castMembers"), caster: v.optional(v.id("castMembers")), ownerId: v.optional(v.id("users")) },
+  handler: async (ctx, { templateId, master, caster, ownerId }) => {
     const template = REEL_TEMPLATES[templateId];
     if (!template) throw new Error("Unknown reel");
     const picks: Array<[SlotId, Id<"castMembers"> | undefined]> = [
@@ -102,6 +108,7 @@ export const createReel = mutation({
       cast,
       story: { title: template.title, logline: template.logline, shots: [] },
       reel: { templateId, beats: template.beats.map((b) => ({ caption: b.caption, narration: b.narration })) },
+      ownerId,
       status: "draft",
       attempts: 0,
       okToPost: await okToPostFor(ctx, cast.map((c) => c.castMemberId)),
@@ -210,9 +217,29 @@ export const postToFeed = mutation({
   },
 });
 
-async function feedItem(ctx: QueryCtx, m: Doc<"movies">) {
+export async function ownerCard(ctx: QueryCtx, ownerId: Id<"users"> | undefined) {
+  const owner = ownerId && (await ctx.db.get(ownerId));
+  if (!owner) return null;
+  const member = owner.castMemberId && (await ctx.db.get(owner.castMemberId));
+  return { _id: owner._id, handle: owner.handle, name: owner.name, look: member ? (member.look ?? null) : null };
+}
+
+async function thumbnailUrl(ctx: QueryCtx, m: Doc<"movies">) {
+  const previews = m.previews ?? [];
+  if (m.status !== "done" || previews.length === 0) return null;
+  const pick = previews[Math.min(previews.length - 1, Math.floor(previews.length / 2))];
+  return await ctx.storage.getUrl(pick.storageId);
+}
+
+export async function feedItem(ctx: QueryCtx, m: Doc<"movies">) {
   const template = m.reel ? REEL_TEMPLATES[m.reel.templateId] : undefined;
   return {
+    owner: await ownerCard(ctx, m.ownerId),
+    thumbnailUrl: await thumbnailUrl(ctx, m),
+    commentCount: m.commentCount ?? 0,
+    shareCount: m.shareCount ?? 0,
+    views: m.views ?? (m.likes ?? 0) * 23 + 412,
+    remixCount: m.remixCount ?? 0,
     _id: m._id,
     genre: m.genre,
     title: m.story.title,
@@ -236,7 +263,8 @@ export const feed = query({
       .withIndex("by_status", (q) => q.eq("status", "done"))
       .order("desc")
       .take(100);
-    return await Promise.all(done.filter((m) => m.postedToFeed).map((m) => feedItem(ctx, m)));
+    const posted = done.filter((m) => m.postedToFeed).sort((a, b) => (b.pinnedAt ?? 0) - (a.pinnedAt ?? 0));
+    return await Promise.all(posted.map((m) => feedItem(ctx, m)));
   },
 });
 
@@ -284,15 +312,27 @@ export const setSlot = mutation({
 });
 
 export const remix = mutation({
-  args: { movieId: v.id("movies"), castMemberId: v.id("castMembers") },
-  handler: async (ctx, { movieId, castMemberId }) => {
+  args: { movieId: v.id("movies"), castMemberId: v.id("castMembers"), ownerId: v.optional(v.id("users")), slot: v.optional(v.string()) },
+  handler: async (ctx, { movieId, castMemberId, ownerId, slot }) => {
     const original = await ctx.db.get(movieId);
     if (!original) throw new Error("Movie not found");
     const member = await ctx.db.get(castMemberId);
     if (!member || member.status !== "ready") throw new Error("Finish your character first");
-    const lead = original.cast.find((c) => (c.slot ?? "master") === "master") ?? original.cast[0];
+    await ctx.db.patch(movieId, { remixCount: (original.remixCount ?? 0) + 1 });
+    if (ownerId && original.ownerId && original.ownerId !== ownerId) {
+      await ctx.db.insert("messages", {
+        fromId: ownerId,
+        toId: original.ownerId,
+        body: `is putting themselves into "${original.story.title}" 🎬`,
+        movieId,
+      });
+    }
+    const lead =
+      (slot && original.cast.find((c) => c.slot === slot)) ||
+      original.cast.find((c) => (c.slot ?? "master") === "master") ||
+      original.cast[0];
     const cast = [
-      { castMemberId, role: lead?.role ?? "Star", ...(original.reel ? { slot: "master" } : {}) },
+      { castMemberId, role: lead?.role ?? "Star", ...(original.reel ? { slot: lead?.slot ?? "master" } : {}) },
       ...original.cast.filter((c) => c !== lead && c.castMemberId !== castMemberId),
     ];
     return await ctx.db.insert("movies", {
@@ -304,6 +344,7 @@ export const remix = mutation({
       attempts: 0,
       okToPost: await okToPostFor(ctx, cast.map((c) => c.castMemberId)),
       postedToFeed: false,
+      ownerId,
       remixOf: original._id,
     });
   },

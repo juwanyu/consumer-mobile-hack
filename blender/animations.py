@@ -223,7 +223,7 @@ def pose_sit(t, T):
     _set(p, "arm_L", _arm(0.5 * k, 0.1, 1))
     _set(p, "arm_R", _arm(0.5 * k, 0.1, -1))
     p["torso"][0] = -0.08 * k
-    return p, 0.0, -0.525 * k
+    return p, 0.0, -0.62 * k
 
 
 def pose_summon(t, T):
@@ -282,21 +282,111 @@ def pose_film(t, T):
     return p, 0.0, 0.0
 
 
+def pose_charge(t, T):
+    p, fwd, up = _gait(t, 1.45, 0.85, 0.0, 0.32, 1.0, 0.08)
+    s = math.sin(2 * math.pi * 1.45 * t)
+    _set(p, "arm_R", _arm(0.95 + 0.08 * s, 0.05, -1))
+    _set(p, "arm_L", _arm(-0.6 * s + 0.2, 0.12, 1))
+    p["head"][0] = -0.25
+    return p, fwd, up
+
+
+RAISE_HOLD = (0.22, 0.52)
+RAISE_IMPACT = 0.66
+
+
+def raise_sword_angles(u):
+    """u = normalised shot time -> (arm angle, body yaw) for the Excalibur swing."""
+    a0, a1 = RAISE_HOLD
+    if u < a0:
+        k = _ease(u / a0)
+        return 0.4 + 1.85 * k, 0.0
+    if u < a1:
+        return 2.25 + 0.04 * math.sin(40 * u), 0.0
+    if u < RAISE_IMPACT:
+        k = _ease((u - a1) / (RAISE_IMPACT - a1))
+        return 2.25 - 2.25 * k, 0.55 - 1.1 * k
+    k = _ease((u - RAISE_IMPACT) / (1 - RAISE_IMPACT))
+    return 0.35 - 0.1 * k, -0.55 - 0.1 * k
+
+
+def pose_raise_sword(t, T):
+    p = _blank()
+    u = t / max(T, 1e-3)
+    theta, yaw = raise_sword_angles(u)
+    if RAISE_HOLD[1] <= u < RAISE_IMPACT:
+        yaw = 0.55 * (1 - 2 * _ease((u - RAISE_HOLD[1]) / (RAISE_IMPACT - RAISE_HOLD[1])))
+    _set(p, "arm_R", _arm(theta, -0.12, -1))
+    _set(p, "arm_L", _arm(theta, -0.32, 1))
+    p["root"][1] = yaw if u >= RAISE_HOLD[1] else 0.0
+    p["torso"][0] = -0.12 if u < RAISE_HOLD[1] else 0.45 * min(1.0, (u - RAISE_HOLD[1]) * 4)
+    p["head"][0] = -0.25 if u < RAISE_HOLD[1] else 0.05
+    p["leg_L"][0] = -0.35
+    p["leg_R"][0] = 0.3
+    p["leg_L"][2] = -0.08
+    p["leg_R"][2] = 0.08
+    return p, 0.0, 0.0
+
+
+def pose_block(t, T):
+    p = _blank()
+    k = _ease(t / 0.25)
+    hit = 0.0
+    for h in (0.45, 1.2, 1.8):
+        d = t - h
+        if 0 <= d < 0.25:
+            hit = max(hit, math.sin(d / 0.25 * math.pi))
+    _set(p, "arm_R", _arm(1.45 * k - 0.15 * hit, -0.35 * k, -1))
+    _set(p, "arm_L", _arm(1.35 * k - 0.15 * hit, -0.45 * k, 1))
+    p["torso"][0] = 0.15 * k - 0.15 * hit
+    p["head"][0] = 0.1 * k
+    p["leg_L"][0] = -0.35 * k
+    p["leg_R"][0] = 0.35 * k
+    return p, -0.12 * hit, 0.0
+
+
+def pose_thumbs_up(t, T):
+    p, _, _ = pose_idle(t, T)
+    k = _ease(t / 0.35)
+    bounce = 0.05 * math.sin(2 * math.pi * 1.6 * t) * k
+    _set(p, "arm_R", _arm(1.2 * k + bounce, 0.25 * k, -1))
+    _set(p, "arm_L", _arm(0.0, -0.05 * k, 1))
+    p["arm_L"][0] = 0.0
+    _set(p, "arm_L", (0.0, 0.0, 0.35 * k))
+    p["head"][2] = 0.12 * k
+    p["torso"][1] = -0.12 * k
+    return p, 0.0, 0.02 * abs(math.sin(2 * math.pi * 1.6 * t)) * k
+
+
+def pose_banner(t, T):
+    p, _, _ = pose_idle(t, T)
+    k = _ease(t / 0.3)
+    wave = math.sin(2 * math.pi * 1.1 * t)
+    _set(p, "arm_R", _arm((1.45 + 0.35 * wave) * k, 0.25 * k, -1))
+    _set(p, "arm_L", _arm(1.3 * k, -0.3 * k, 1))
+    p["torso"][2] = -0.08 * wave * k
+    p["head"][0] = -0.2 * k
+    return p, 0.0, 0.0
+
+
 ACTIONS = {
     "idle": pose_idle, "walk": pose_walk, "run": pose_run, "jump": pose_jump, "wave": pose_wave,
     "point": pose_point, "punch": pose_punch, "dance": pose_dance, "celebrate": pose_celebrate,
     "fall": pose_fall, "sneak": pose_sneak, "talk": pose_talk, "scared": pose_scared, "sit": pose_sit,
     "summon": pose_summon, "slash": pose_slash, "film": pose_film,
+    "charge": pose_charge, "raise_sword": pose_raise_sword, "block": pose_block, "thumbs_up": pose_thumbs_up,
+    "banner": pose_banner,
 }
 
-ACTION_PROPS = {"slash": "sword", "film": "camera", "summon": "glow"}
+ACTION_PROPS = {"slash": "sword", "film": "camera", "summon": "glow", "charge": "sword", "raise_sword": "sword",
+                "block": "sword", "banner": "banner"}
 
 
 def supported_actions():
     return [a for a in castlib.library()["actions"] if a in ACTIONS]
 
 
-def apply_action(rig, action_name, start_frame, frame_count, step=2):
+def apply_action(rig, action_name, start_frame, frame_count, step=2, travel=1.0):
     """Keyframe action_name on rig for frame_count frames from start_frame. Unknown actions fall back to idle."""
     fn = ACTIONS.get(action_name if isinstance(action_name, str) else "", pose_idle)
     frame_count = max(1, int(frame_count))
@@ -312,7 +402,7 @@ def apply_action(rig, action_name, start_frame, frame_count, step=2):
         t = i / FPS
         pose, fwd, up = fn(t, T)
         f = start_frame + i
-        rig.location = base + forward * fwd + Vector((0, 0, up))
+        rig.location = base + forward * (fwd * travel) + Vector((0, 0, up))
         rig.keyframe_insert("location", frame=f)
         for bname in BONE_NAMES:
             pb = rig.pose.bones.get(bname)

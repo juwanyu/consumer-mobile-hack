@@ -1,10 +1,10 @@
 import library from "../shared/assetLibrary.json";
 
 export type SlotId = "master" | "caster";
-export type BeatCharacter = { slot: SlotId | "npc:saber"; mark: string; action: string };
+export type BeatCharacter = { slot: SlotId | `npc:${string}`; mark: string; action: string };
 export type Beat = {
   location: string;
-  fx: string;
+  fx: string | string[];
   camera: { mark: string; move: string };
   duration: number;
   characters: BeatCharacter[];
@@ -21,7 +21,7 @@ export type ReelTemplate = {
   logline: string;
   voice: string;
   voiceSpeed: number;
-  slots: { id: SlotId; role: string; required: boolean }[];
+  slots: { id: SlotId; role: string; required: boolean; outfit?: string }[];
   beats: Beat[];
 };
 
@@ -32,97 +32,658 @@ export const REEL_TEMPLATES: Record<string, ReelTemplate> = {
     emoji: "⚔️",
     genre: "fate",
     title: "FATE/SHIP NIGHT",
-    logline: "Unlimited Build Works · powered by Capy",
+    logline: "Defend the Castle · powered by Capy",
     voice: "onyx",
-    voiceSpeed: 1.25,
+    voiceSpeed: 1.2,
     slots: [
-      { id: "master", role: "Master", required: true },
-      { id: "caster", role: "Caster", required: false },
+      {
+        id: "master",
+        role: "Saber",
+        required: true,
+        outfit: "saber"
+      },
+      {
+        id: "caster",
+        role: "Squire",
+        required: false
+      }
     ],
     beats: [
       {
-        location: "summoning_room",
-        fx: "magic_circle",
-        camera: { mark: "wide", move: "push_in" },
+        location: "yc_hq",
+        fx: [
+          "flash"
+        ],
+        camera: {
+          mark: "wide",
+          move: "push_in"
+        },
+        duration: 2.6,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "thumbs_up"
+          },
+          {
+            slot: "caster",
+            mark: "right",
+            action: "film"
+          }
+        ],
+        hud: [
+          {
+            label: "CAPY AGENTS",
+            value: "8"
+          }
+        ],
+        caption: "Demo Day. YC HQ.",
+        narration: "Demo Day at YC. {master} walks in, backed by Capy."
+      },
+      {
+        location: "capy_castle",
+        fx: [
+          "army",
+          "speed_lines"
+        ],
+        camera: {
+          mark: "wide",
+          move: "dolly_out"
+        },
         duration: 2.8,
-        characters: [{ slot: "master", mark: "center", action: "summon" }],
-        hud: [{ label: "COMMAND SEALS", value: "3" }],
-        caption: "The Holy Grail War starts at six.",
-        narration: "The Grail War starts at six. {master} opens Capy.",
-      },
-      {
-        location: "summoning_room",
-        fx: "flash",
-        camera: { mark: "low_angle", move: "dolly_in" },
-        duration: 3,
         characters: [
-          { slot: "npc:saber", mark: "center", action: "jump" },
-          { slot: "master", mark: "left", action: "scared" },
+          {
+            slot: "master",
+            mark: "center",
+            action: "point"
+          }
         ],
-        hud: [{ label: "COMMAND SEALS", value: "3" }],
-        caption: "“I ask of you… are you my Master?”",
-        narration: "A blade. A light. I ask of you... are you my Master?",
+        hud: [
+          {
+            label: "YC FOUNDERS",
+            value: "1000"
+          }
+        ],
+        caption: "Then the founders came.",
+        narration: "Then a thousand YC founders stormed the castle."
       },
       {
-        location: "rooftop",
-        fx: "sparkles",
-        camera: { mark: "medium", move: "orbit" },
+        location: "capy_castle",
+        fx: [
+          "magic_circle",
+          "flash",
+          "embers"
+        ],
+        camera: {
+          mark: "low_angle",
+          move: "dolly_in"
+        },
         duration: 2.6,
-        characters: [{ slot: "caster", mark: "center", action: "film" }],
-        hud: [{ label: "SERVANTS", value: "2" }],
-        caption: "{caster}. Caster class.",
-        narration: "{caster}. Caster class. His Noble Phantasm? A camera.",
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "summon"
+          }
+        ],
+        hud: [
+          {
+            label: "YC FOUNDERS",
+            value: "1000"
+          }
+        ],
+        caption: "He doesn't run. He suits up.",
+        narration: "He doesn't run. He suits up."
       },
       {
-        location: "main_street",
-        fx: "speed_lines",
-        camera: { mark: "closeup", move: "push_in" },
+        location: "castle_wall",
+        fx: [
+          "army",
+          "embers"
+        ],
+        camera: {
+          mark: "medium",
+          move: "orbit"
+        },
         duration: 2.4,
-        characters: [{ slot: "master", mark: "center", action: "point" }],
-        hud: [
-          { label: "COMMAND SEALS", value: "2" },
-          { label: "CAPY AGENTS", value: "1" },
+        characters: [
+          {
+            slot: "caster",
+            mark: "center",
+            action: "banner"
+          }
         ],
-        caption: "First seal: ship it by six.",
-        narration: "First Command Seal. Ship it by six.",
+        hud: [
+          {
+            label: "YC FOUNDERS",
+            value: "1000"
+          }
+        ],
+        caption: "{caster}. His squire. Rolling.",
+        narration: "{caster}, his squire, raises the banner."
       },
       {
-        location: "casino",
-        fx: "speed_lines",
-        camera: { mark: "wide", move: "pan" },
+        location: "capy_castle",
+        fx: [
+          "army",
+          "speed_lines",
+          "sparkles"
+        ],
+        camera: {
+          mark: "medium",
+          move: "shake"
+        },
         duration: 2.6,
         characters: [
-          { slot: "npc:saber", mark: "left", action: "slash" },
-          { slot: "caster", mark: "right", action: "film" },
-          { slot: "master", mark: "center", action: "run" },
+          {
+            slot: "master",
+            mark: "center",
+            action: "charge"
+          }
         ],
         hud: [
-          { label: "COMMAND SEALS", value: "1" },
-          { label: "CAPY AGENTS", value: "8" },
+          {
+            label: "YC FOUNDERS",
+            value: "420"
+          }
         ],
-        caption: "Capy codes. Revyl proves. Convex holds.",
-        narration: "Capy writes the code. Revyl proves it. Convex holds the line.",
+        caption: "Pitch decks. Term sheets. CUT.",
+        narration: "Pitch decks. Term sheets. Growth hacks. Cut."
       },
       {
-        location: "rooftop",
-        fx: "excalibur",
-        camera: { mark: "low_angle", move: "shake" },
-        duration: 3,
+        location: "capy_castle",
+        fx: [
+          "speed_lines",
+          "embers"
+        ],
+        camera: {
+          mark: "closeup",
+          move: "push_in"
+        },
+        duration: 2.2,
         characters: [
-          { slot: "npc:saber", mark: "center", action: "slash" },
-          { slot: "master", mark: "left", action: "celebrate" },
-          { slot: "caster", mark: "right", action: "film" },
+          {
+            slot: "master",
+            mark: "center",
+            action: "block"
+          }
         ],
         hud: [
-          { label: "COMMAND SEALS", value: "0" },
-          { label: "SHIPPED", value: "1" },
-          { label: "CAPY AGENTS", value: "8" },
+          {
+            label: "YC FOUNDERS",
+            value: "88"
+          }
+        ],
+        caption: "Nobody takes Capy.",
+        narration: "Nobody takes the castle."
+      },
+      {
+        location: "castle_wall",
+        fx: [
+          "army",
+          "excalibur",
+          "shockwave",
+          "army_fall"
+        ],
+        camera: {
+          mark: "low_angle",
+          move: "shake"
+        },
+        duration: 3.2,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "raise_sword"
+          },
+          {
+            slot: "caster",
+            mark: "right",
+            action: "film"
+          }
+        ],
+        hud: [
+          {
+            label: "YC FOUNDERS",
+            value: "0"
+          }
         ],
         caption: "EXCALIBUR!",
-        narration: "Last seal. Saber... EXCALIBUR!",
+        narration: "Ex... CALIBUR!"
       },
-    ],
+      {
+        location: "castle_wall",
+        fx: [
+          "embers",
+          "sparkles"
+        ],
+        camera: {
+          mark: "wide",
+          move: "orbit"
+        },
+        duration: 2.8,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "celebrate"
+          },
+          {
+            slot: "caster",
+            mark: "right",
+            action: "banner"
+          }
+        ],
+        hud: [
+          {
+            label: "CASTLE CAPY",
+            value: "STANDING"
+          }
+        ],
+        caption: "The castle stands.",
+        narration: "The castle stands. Capy ships."
+      }
+    ]
   },
+  mtb: {
+    id: "mtb",
+    label: "Send It (MTB)",
+    emoji: "🚵",
+    genre: "mtb",
+    title: "SEND IT",
+    logline: "A Revyl reel · powered by Capy",
+    voice: "onyx",
+    voiceSpeed: 1.2,
+    slots: [
+      {
+        id: "master",
+        role: "Revyl co-founder",
+        required: true,
+        outfit: "mtb"
+      }
+    ],
+    beats: [
+      {
+        location: "mountain_trail",
+        fx: [
+          "dust"
+        ],
+        camera: {
+          mark: "wide",
+          move: "dolly_in"
+        },
+        duration: 2.6,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "bike_ride"
+          }
+        ],
+        hud: [
+          {
+            label: "SPEED",
+            value: "32"
+          }
+        ],
+        caption: "Top of the mountain.",
+        narration: "Top of the trail. {master}, co-founder of Revyl, drops in."
+      },
+      {
+        location: "mountain_trail",
+        fx: [
+          "speed_lines",
+          "dust"
+        ],
+        camera: {
+          mark: "medium",
+          move: "pan"
+        },
+        duration: 2.4,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "bike_ride"
+          }
+        ],
+        hud: [
+          {
+            label: "SPEED",
+            value: "58"
+          }
+        ],
+        caption: "No brakes.",
+        narration: "No brakes. Every turn tested before it ships."
+      },
+      {
+        location: "mountain_trail",
+        fx: [
+          "dust"
+        ],
+        camera: {
+          mark: "closeup",
+          move: "push_in"
+        },
+        duration: 2.2,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "rock_on"
+          }
+        ],
+        hud: [
+          {
+            label: "BUGS FOUND",
+            value: "0"
+          }
+        ],
+        caption: "Tested by Revyl. 🤘",
+        narration: "Every jump, tested by Revyl."
+      },
+      {
+        location: "mountain_trail",
+        fx: [
+          "speed_lines",
+          "dust"
+        ],
+        camera: {
+          mark: "low_angle",
+          move: "dolly_in"
+        },
+        duration: 2.2,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "bike_jump"
+          }
+        ],
+        hud: [
+          {
+            label: "SPEED",
+            value: "71"
+          }
+        ],
+        caption: "SEND IT.",
+        narration: "Send it."
+      },
+      {
+        location: "mountain_trail",
+        fx: [
+          "slowmo",
+          "sparkles"
+        ],
+        camera: {
+          mark: "wide",
+          move: "orbit"
+        },
+        duration: 3,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "bike_jump"
+          }
+        ],
+        hud: [
+          {
+            label: "AIR TIME",
+            value: "2.4"
+          }
+        ],
+        caption: "Slow it down…",
+        narration: "Slow it down."
+      },
+      {
+        location: "mountain_trail",
+        fx: [
+          "flash",
+          "dust"
+        ],
+        camera: {
+          mark: "wide",
+          move: "shake"
+        },
+        duration: 2.8,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "celebrate"
+          }
+        ],
+        hud: [
+          {
+            label: "LANDED",
+            value: "1"
+          }
+        ],
+        caption: "Stuck the landing.",
+        narration: "Stuck it. Ship it."
+      }
+    ]
+  },
+  karate: {
+    id: "karate",
+    label: "Wax On (Karate)",
+    emoji: "🥋",
+    genre: "karate",
+    title: "WAX ON",
+    logline: "The new karate kid · presented by Whop",
+    voice: "onyx",
+    voiceSpeed: 1.2,
+    slots: [
+      {
+        id: "master",
+        role: "the new Karate Kid · presented by Whop",
+        required: true,
+        outfit: "karate"
+      }
+    ],
+    beats: [
+      {
+        location: "dojo",
+        fx: [
+          "sparkles"
+        ],
+        camera: {
+          mark: "wide",
+          move: "dolly_in"
+        },
+        duration: 2.6,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "wax_on"
+          }
+        ],
+        hud: [
+          {
+            label: "REPS",
+            value: "100"
+          }
+        ],
+        caption: "Wax on.",
+        narration: "Every legend starts with chores. {master}, from Whop. Wax on."
+      },
+      {
+        location: "dojo",
+        fx: [
+          "speed_lines"
+        ],
+        camera: {
+          mark: "medium",
+          move: "pan"
+        },
+        duration: 2.2,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "wax_on"
+          }
+        ],
+        hud: [
+          {
+            label: "REPS",
+            value: "1000"
+          }
+        ],
+        caption: "Wax off.",
+        narration: "Wax off. A thousand times."
+      },
+      {
+        location: "tournament_arena",
+        fx: [
+          "flash",
+          "crowd"
+        ],
+        camera: {
+          mark: "wide",
+          move: "orbit"
+        },
+        duration: 2.4,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "bow"
+          }
+        ],
+        hud: [
+          {
+            label: "CROWD",
+            value: "5000"
+          }
+        ],
+        caption: "Tournament night.",
+        narration: "Tournament night. Five thousand screaming fans."
+      },
+      {
+        location: "tournament_arena",
+        fx: [
+          "crowd"
+        ],
+        camera: {
+          mark: "closeup",
+          move: "push_in"
+        },
+        duration: 2.2,
+        characters: [
+          {
+            slot: "npc:rival",
+            mark: "center",
+            action: "taunt"
+          }
+        ],
+        hud: [
+          {
+            label: "CHAMP RECORD",
+            value: "99"
+          }
+        ],
+        caption: "The undefeated champ.",
+        narration: "Across the mat, the undefeated champ."
+      },
+      {
+        location: "tournament_arena",
+        fx: [
+          "slowmo",
+          "sparkles",
+          "crowd"
+        ],
+        camera: {
+          mark: "low_angle",
+          move: "orbit"
+        },
+        duration: 3,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "crane_kick"
+          },
+          {
+            slot: "npc:rival",
+            mark: "left",
+            action: "fight_stance"
+          }
+        ],
+        hud: [
+          {
+            label: "POINTS",
+            value: "1"
+          }
+        ],
+        caption: "One point left…",
+        narration: "One point left. He lifts one leg."
+      },
+      {
+        location: "tournament_arena",
+        fx: [
+          "flash",
+          "speed_lines",
+          "shockwave"
+        ],
+        camera: {
+          mark: "medium",
+          move: "shake"
+        },
+        duration: 2,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "crane_kick"
+          },
+          {
+            slot: "npc:rival",
+            mark: "left",
+            action: "fall"
+          }
+        ],
+        hud: [
+          {
+            label: "POINTS",
+            value: "2"
+          }
+        ],
+        caption: "HI-YAH!",
+        narration: "Hi-yah!"
+      },
+      {
+        location: "tournament_arena",
+        fx: [
+          "sparkles",
+          "crowd",
+          "flash"
+        ],
+        camera: {
+          mark: "wide",
+          move: "orbit"
+        },
+        duration: 2.8,
+        characters: [
+          {
+            slot: "master",
+            mark: "center",
+            action: "trophy"
+          }
+        ],
+        hud: [
+          {
+            label: "CHAMPION",
+            value: "1"
+          }
+        ],
+        caption: "Champion.",
+        narration: "Champion. Presented by Whop."
+      }
+    ]
+  }
 };
 
 export const NPCS = library.npcs;

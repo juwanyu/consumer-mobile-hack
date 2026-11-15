@@ -8,18 +8,24 @@ export function buildReelPlan(templateId: string, beats: { caption: string; narr
   if (!template) throw new Error("Unknown reel template");
   const bySlot = new Map(cast.map((c) => [c.slot, c]));
   const names = Object.fromEntries(cast.map((c) => [c.slot, c.name])) as Partial<Record<SlotId, string>>;
-  const saber = NPCS.saber;
 
+  const npcs = NPCS as Record<string, { name: string; role: string; look: unknown } | undefined>;
+  const usedNpcs = [...new Set(template.beats.flatMap((b) => b.characters.map((ch) => ch.slot)).filter((s) => s.startsWith("npc:")))]
+    .map((s) => s.slice(4))
+    .filter((id) => npcs[id]);
   const planCast = [
-    ...cast.map((c) => ({ id: c.slot, name: c.name, role: c.role, look: c.look })),
-    { id: "npc_saber", name: saber.name, role: saber.role, npc: true, look: saber.look },
+    ...cast.map((c) => {
+      const outfit = template.slots.find((s) => s.id === c.slot)?.outfit;
+      return { id: c.slot, name: c.name, role: c.role, look: c.look, ...(outfit ? { outfit } : {}) };
+    }),
+    ...usedNpcs.map((id) => ({ id: "npc_" + id, name: npcs[id]!.name, role: npcs[id]!.role, npc: true, look: npcs[id]!.look })),
   ];
 
   const shots = template.beats
     .map((beat, i) => {
       const characters = beat.characters
-        .filter((ch) => ch.slot === "npc:saber" || bySlot.has(ch.slot as SlotId))
-        .map((ch) => ({ cast_id: ch.slot === "npc:saber" ? "npc_saber" : ch.slot, mark: ch.mark, action: ch.action }));
+        .filter((ch) => (ch.slot.startsWith("npc:") ? usedNpcs.includes(ch.slot.slice(4)) : bySlot.has(ch.slot as SlotId)))
+        .map((ch) => ({ cast_id: ch.slot.startsWith("npc:") ? "npc_" + ch.slot.slice(4) : ch.slot, mark: ch.mark, action: ch.action }));
       if (characters.length === 0) return null;
       const edited = beats[i];
       const narration = fillNames(edited?.narration ?? beat.narration, names).trim();

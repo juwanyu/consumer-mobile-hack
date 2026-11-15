@@ -1,9 +1,12 @@
-"""R6-style blocky character: rigid parts parented to bones of a 7-bone armature (no skinning).
+"""Stylised R6-style character: rigid parts parented to bones of a 7-bone armature (no skinning).
 
-build_character(look, name, collection=None) -> armature object at the origin facing -Y.
+build_character(look, name, collection=None, variant=0, props=()) -> armature object at the origin facing -Y.
+Toon material + inverted-hull outlines; the face has separate eyelid and open-mouth objects
+(rig["lids"], rig["mouth_open"]) so the renderer can blink and flap the mouth with hide_render keys.
 """
 import math
 import os
+import random
 import sys
 
 import bpy
@@ -25,21 +28,46 @@ DEFAULT_LOOK = {
     "accessory": "none",
 }
 
+HIP_Z = 0.8
+SHOULDER_Z = 1.36
+ARM_X = 0.44
+HAND_Z = 0.75
+HEAD_Z = 1.75
+HEAD_W = 0.56
+FACE_Y = -0.26
+TOP_Z = 2.03
+EYE_X, EYE_Z = 0.12, 1.73
+HAND_R = (-ARM_X, -0.01, HAND_Z)
+
 BONES = {
     "root": ((0, 0, 0), (0, 0, 0.3), None),
-    "torso": ((0, 0, 0.7), (0, 0, 1.4), "root"),
-    "head": ((0, 0, 1.4), (0, 0, 1.82), "torso"),
-    "arm_L": ((0.525, 0, 1.3), (0.525, 0, 0.7), "torso"),
-    "arm_R": ((-0.525, 0, 1.3), (-0.525, 0, 0.7), "torso"),
-    "leg_L": ((0.175, 0, 0.7), (0.175, 0, 0.0), "root"),
-    "leg_R": ((-0.175, 0, 0.7), (-0.175, 0, 0.0), "root"),
+    "torso": ((0, 0, HIP_Z), (0, 0, 1.42), "root"),
+    "head": ((0, 0, 1.43), (0, 0, TOP_Z), "torso"),
+    "arm_L": ((ARM_X, 0, SHOULDER_Z), (ARM_X, 0, HAND_Z), "torso"),
+    "arm_R": ((-ARM_X, 0, SHOULDER_Z), (-ARM_X, 0, HAND_Z), "torso"),
+    "leg_L": ((0.155, 0, HIP_Z), (0.155, 0, 0.0), "root"),
+    "leg_R": ((-0.155, 0, HIP_Z), (-0.155, 0, 0.0), "root"),
 }
 
-HEAD_Z = 1.61
-FACE_Y = -0.21
 SILVER = "#C9D3DE"
 GOLD = "#E8B931"
-HAT_LIFT = {"afro": 0.22, "mohawk": 0.12, "spiky": 0.1, "bun": 0.06, "curly": 0.05}
+INK = "#1A1214"
+
+
+def mix(a, b, t):
+    a = castlib.hex_to_srgb(a) if isinstance(a, str) else a
+    b = castlib.hex_to_srgb(b) if isinstance(b, str) else b
+    return tuple(x * (1 - t) + y * t for x, y in zip(a, b))
+
+
+def luma(c):
+    r, g, b = castlib.hex_to_srgb(c) if isinstance(c, str) else c
+    return 0.3 * r + 0.59 * g + 0.11 * b
+
+
+def saturation(c):
+    r, g, b = castlib.hex_to_srgb(c) if isinstance(c, str) else c
+    return max(r, g, b) - min(r, g, b)
 
 
 def _is_hex(v):
@@ -81,244 +109,385 @@ def sanitize_look(look, variant=0):
     return out
 
 
-def _face(mb):
+
+# ---------------------------------------------------------------- head
+
+def _head_base(mb, look):
+    skin = look["skin_tone"]
+    mb.rbox((0, 0, HEAD_Z), (HEAD_W, 0.52, 0.56), skin, radius=0.07, segments=2)
+    mb.rbox((0, 0.0, 1.47), (0.2, 0.2, 0.1), shade(skin, 0.85), radius=0.03)
     for sx in (-1, 1):
-        mb.box((sx * 0.085, FACE_Y - 0.008, 1.645), (0.055, 0.02, 0.1), "#111111")
-        mb.box((sx * 0.085 + 0.012, FACE_Y - 0.02, 1.67), (0.02, 0.01, 0.025), "#FFFFFF")
-        mb.box((sx * 0.085, FACE_Y - 0.006, 1.725), (0.08, 0.016, 0.018), "#2A1A10")
-    mb.box((0, FACE_Y - 0.008, 1.535), (0.11, 0.02, 0.026), "#3A1010")
+        mb.rbox((sx * 0.29, 0.02, 1.72), (0.05, 0.11, 0.14), skin, radius=0.02)
+    mb.box((0, FACE_Y - 0.004, 1.645), (0.035, 0.012, 0.025), shade(skin, 0.82))
+    blush = mix(skin, "#FF6F86", 0.35)
     for sx in (-1, 1):
-        mb.box((sx * 0.065, FACE_Y - 0.008, 1.55), (0.03, 0.02, 0.03), "#3A1010")
+        mb.box((sx * 0.175, FACE_Y - 0.002, 1.645), (0.075, 0.008, 0.03), blush)
 
 
-def _hair(mb, style, col):
-    dark = shade(col, 0.85)
+def _eyes(mb, look, iris):
+    brow = shade(look["hair_color"], 0.8) if look["hair_style"] != "bald" else shade(look["skin_tone"], 0.55)
+    for sx in (-1, 1):
+        x = sx * EYE_X
+        mb.box((x, FACE_Y - 0.004, EYE_Z), (0.13, 0.012, 0.16), "#FFFFFF")
+        mb.box((x + sx * 0.004, FACE_Y - 0.009, EYE_Z - 0.008), (0.095, 0.012, 0.13), iris)
+        mb.box((x + sx * 0.004, FACE_Y - 0.013, EYE_Z - 0.012), (0.05, 0.01, 0.075), "#0B0B12")
+        mb.box((x - 0.02, FACE_Y - 0.017, EYE_Z + 0.03), (0.034, 0.008, 0.034), "#FFFFFF", mat=1)
+        mb.box((x + 0.026, FACE_Y - 0.017, EYE_Z - 0.04), (0.018, 0.008, 0.018), "#FFFFFF", mat=1)
+        mb.box((x, FACE_Y - 0.012, EYE_Z + 0.08), (0.155, 0.014, 0.03), INK)
+        mb.box((x + sx * 0.085, FACE_Y - 0.012, EYE_Z + 0.065), (0.045, 0.014, 0.022), INK, rot=(0, -sx * 0.5, 0))
+        mb.box((x, FACE_Y - 0.008, EYE_Z + 0.155), (0.14, 0.016, 0.032), brow, rot=(0, sx * 0.1, 0))
+
+
+def _mouth_closed(mb):
+    m = "#5A1F24"
+    mb.box((0, FACE_Y - 0.006, 1.583), (0.08, 0.012, 0.018), m)
+    for sx in (-1, 1):
+        mb.box((sx * 0.05, FACE_Y - 0.006, 1.594), (0.035, 0.012, 0.016), m, rot=(0, -sx * 0.55, 0))
+
+
+def _mouth_open(mb):
+    mb.rbox((0, FACE_Y - 0.012, 1.578), (0.11, 0.014, 0.075), "#3E1016", radius=0.006, segments=1)
+    mb.box((0, FACE_Y - 0.02, 1.553), (0.07, 0.008, 0.024), "#E0697A")
+    mb.box((0, FACE_Y - 0.02, 1.605), (0.085, 0.008, 0.016), "#FFFFFF")
+
+
+def _lids(mb, look):
+    skin = shade(look["skin_tone"], 0.93)
+    for sx in (-1, 1):
+        x = sx * EYE_X
+        mb.box((x, FACE_Y - 0.024, EYE_Z + 0.005), (0.165, 0.01, 0.185), skin)
+        mb.box((x, FACE_Y - 0.03, EYE_Z - 0.03), (0.15, 0.01, 0.025), INK)
+
+
+def _curl_points(radii, center, count, keep, seed):
+    rnd = random.Random(seed)
+    pts = []
+    golden = math.pi * (3 - math.sqrt(5))
+    for i in range(count):
+        z = 1 - 2 * (i + 0.5) / count
+        r = math.sqrt(1 - z * z)
+        th = golden * i
+        d = (math.cos(th) * r, math.sin(th) * r, z)
+        p = (center[0] + d[0] * radii[0], center[1] + d[1] * radii[1], center[2] + d[2] * radii[2])
+        if keep(p, d):
+            pts.append((p, rnd.uniform(0.85, 1.15)))
+    return pts
+
+
+def _hair(mb, look, hat):
+    style, col = look["hair_style"], look["hair_color"]
     if style == "bald":
         return
+    dark, light = shade(col, 0.7), mix(col, "#8A7A9A", 0.22)
+    cap_line = 1.97 if hat else 9.0
     if style in ("buzz", "mohawk"):
-        mb.box((0, 0.005, 1.81), (0.44, 0.44, 0.045), dark if style == "mohawk" else col)
-        mb.box((0, 0.215, 1.69), (0.44, 0.03, 0.24), dark if style == "mohawk" else col)
+        mb.rbox((0, 0.01, TOP_Z - 0.01), (0.585, 0.545, 0.07), dark, radius=0.03)
+        mb.rbox((0, 0.18, 1.82), (0.585, 0.2, 0.36), dark, radius=0.03)
         if style == "mohawk":
-            for i, y in enumerate((-0.16, -0.08, 0.0, 0.08, 0.16)):
-                mb.box((0, y, 1.89 + 0.02 * (i % 2)), (0.09, 0.09, 0.17), col)
+            for i, y in enumerate((-0.2, -0.1, 0.0, 0.1, 0.2)):
+                mb.rbox((0, y, TOP_Z + 0.1 + 0.03 * (i % 2)), (0.11, 0.11, 0.22), col, radius=0.025)
         return
-    mb.box((0, 0.01, 1.835), (0.46, 0.46, 0.1), col)
-    mb.box((0, 0.225, 1.66), (0.46, 0.05, 0.36), col)
+    if style in ("curly", "afro"):
+        big = style == "afro"
+        radii = (0.46, 0.44, 0.38) if big else (0.335, 0.325, 0.27)
+        center = (0, 0.04, 1.87 if not big else 1.92)
+        mb.rbox((0, 0.06, 1.86), (0.58, 0.52, 0.32), dark, radius=0.06)
+
+        def keep(p, d):
+            if p[2] > cap_line and hat:
+                return False
+            if d[1] < -0.55:
+                return p[2] > 1.93
+            if d[1] < -0.2:
+                return p[2] > 1.86
+            return p[2] > (1.55 if not big else 1.5)
+        pts = _curl_points(radii, center, 150 if big else 110, keep, 7)
+        for k, (p, s) in enumerate(pts):
+            mb.ball(p, (0.105 if big else 0.085) * s, (col, light, dark)[k % 3], subdiv=2)
+        if not hat:
+            for k, x in enumerate((-0.2, -0.1, 0.0, 0.1, 0.2)):
+                mb.ball((x, FACE_Y - 0.01, 1.95 + 0.02 * (k % 2)), 0.072, (col, light)[k % 2], subdiv=2)
+        return
+    mb.rbox((0, 0.02, TOP_Z - 0.005), (0.6, 0.57, 0.12), col, radius=0.05)
+    mb.rbox((0, 0.18, 1.8), (0.6, 0.24, 0.42), col, radius=0.05)
     for sx in (-1, 1):
-        mb.box((sx * 0.225, 0.06, 1.71), (0.03, 0.34, 0.2), col)
-    mb.box((0.04, FACE_Y - 0.01, 1.785), (0.38, 0.04, 0.08), col)
+        mb.rbox((sx * 0.29, 0.02, 1.86), (0.06, 0.42, 0.24), col, radius=0.02)
+    if not hat:
+        for k, x in enumerate((-0.21, -0.07, 0.07, 0.21)):
+            mb.rbox((x, FACE_Y - 0.015, 1.94 - 0.015 * (k % 2)), (0.16, 0.07, 0.14), (col, dark)[k % 2],
+                    radius=0.02, rot=(0.15, 0, (k - 1.5) * 0.12))
     if style == "spiky":
-        for x in (-0.15, 0.0, 0.15):
-            for y in (-0.12, 0.05, 0.18):
-                mb.cyl((x, y, 1.95), 0.08, 0.18, col, segs=4, radius2=0.0)
-    elif style == "curly":
-        for x in (-0.17, -0.06, 0.06, 0.17):
-            for y in (-0.15, -0.03, 0.09, 0.2):
-                mb.ball((x, y, 1.89), 0.075, col, subdiv=1)
-        for x in (-0.17, -0.06, 0.06, 0.17):
-            mb.ball((x, 0.24, 1.72), 0.07, col, subdiv=1)
-    elif style == "afro":
-        mb.ball((0, 0.06, 1.93), 0.36, col, subdiv=2, scale=(1.0, 0.85, 0.72))
-        for sx in (-1, 1):
-            mb.ball((sx * 0.25, 0.08, 1.72), 0.15, col, subdiv=1)
-        mb.ball((0, 0.24, 1.7), 0.2, col, subdiv=1)
+        for x in (-0.18, 0.0, 0.18):
+            for y in (-0.14, 0.05, 0.2):
+                mb.cyl((x, y, TOP_Z + 0.11), 0.1, 0.24, col, segs=4, radius2=0.0, rot=(y * 1.2, -x * 1.5, 0))
     elif style == "long":
-        mb.box((0, 0.24, 1.42), (0.48, 0.07, 0.8), col)
+        mb.rbox((0, 0.29, 1.5), (0.62, 0.09, 0.82), col, radius=0.04)
         for sx in (-1, 1):
-            mb.box((sx * 0.235, 0.05, 1.5), (0.045, 0.32, 0.62), col)
+            mb.rbox((sx * 0.3, -0.06, 1.58), (0.07, 0.32, 0.6), col, radius=0.03)
     elif style == "ponytail":
-        mb.box((0, 0.26, 1.72), (0.12, 0.06, 0.08), dark)
-        mb.box((0, 0.31, 1.5), (0.14, 0.12, 0.42), col, rot=(-0.25, 0, 0))
+        mb.box((0, 0.3, 1.86), (0.14, 0.06, 0.09), dark)
+        mb.rbox((0, 0.38, 1.6), (0.17, 0.15, 0.5), col, radius=0.05, rot=(-0.25, 0, 0))
     elif style == "bun":
-        mb.ball((0, 0.1, 1.95), 0.12, col, subdiv=1)
-
-
-def _facial_hair(mb, style, col, skin):
-    if style == "stubble":
-        mix = tuple((a * 0.55 + b * 0.45) for a, b in zip(castlib.hex_to_srgb(col), castlib.hex_to_srgb(skin)))
-        mb.box((0, FACE_Y - 0.003, 1.47), (0.42, 0.012, 0.12), mix)
-        return
-    if style in ("mustache", "beard", "goatee"):
-        mb.box((0, FACE_Y - 0.02, 1.575), (0.2, 0.03, 0.04), col)
-    if style == "beard":
-        mb.box((0, FACE_Y - 0.02, 1.44), (0.44, 0.045, 0.14), col)
-        for sx in (-1, 1):
-            mb.box((sx * 0.215, -0.04, 1.55), (0.035, 0.3, 0.26), col)
-            mb.box((sx * 0.14, FACE_Y - 0.02, 1.53), (0.1, 0.045, 0.06), col)
-    elif style == "goatee":
-        mb.box((0, FACE_Y - 0.02, 1.47), (0.12, 0.045, 0.1), col)
-
-
-def _glasses(mb, style):
-    frame = "#151515"
-    y = FACE_Y - 0.03
-    z = 1.65
-    if style == "none":
-        return
-    for sx in (-1, 1):
-        cx = sx * 0.085
-        if style == "round":
-            for k in range(16):
-                a = 2 * math.pi * k / 16
-                mb.box((cx + 0.066 * math.cos(a), y, z + 0.066 * math.sin(a)), (0.03, 0.02, 0.018), frame, rot=(0, -(a + math.pi / 2), 0))
-        elif style == "square":
-            mb.box((cx, y, z + 0.06), (0.15, 0.02, 0.022), frame)
-            mb.box((cx, y, z - 0.06), (0.15, 0.02, 0.022), frame)
-            mb.box((cx - 0.065, y, z), (0.022, 0.02, 0.14), frame)
-            mb.box((cx + 0.065, y, z), (0.022, 0.02, 0.14), frame)
-        else:
-            mb.box((cx, y, z - 0.005), (0.15, 0.025, 0.09), "#0A0A0A")
-        mb.box((sx * 0.215, -0.1, z + 0.03), (0.02, 0.22, 0.02), frame)
-    mb.box((0, y, z + 0.03), (0.05, 0.02, 0.02), frame)
+        mb.ball((0, 0.17, TOP_Z + 0.07), 0.14, col, subdiv=2)
+        mb.box((0, 0.16, TOP_Z + 0.0), (0.2, 0.18, 0.04), dark)
 
 
 def _saber_hair(mb, col):
     for sx in (-1, 1):
-        mb.box((sx * 0.2, FACE_Y - 0.02, 1.58), (0.06, 0.06, 0.26), col)
-        mb.box((sx * 0.1, FACE_Y - 0.025, 1.76), (0.12, 0.05, 0.1), col, rot=(0, sx * 0.3, 0))
-    mb.box((0, FACE_Y - 0.03, 1.75), (0.07, 0.05, 0.13), col)
-    mb.box((0.02, -0.05, 1.93), (0.03, 0.12, 0.1), col, rot=(0.6, 0, 0))
-    mb.box((0, 0.17, 1.9), (0.2, 0.05, 0.06), "#1F3A93")
+        mb.rbox((sx * 0.25, FACE_Y - 0.02, 1.64), (0.07, 0.07, 0.3), col, radius=0.025)
+    mb.rbox((0, FACE_Y - 0.03, 1.88), (0.08, 0.06, 0.16), col, radius=0.02)
+    mb.box((0.03, -0.06, TOP_Z + 0.08), (0.035, 0.16, 0.13), col, rot=(0.6, 0, 0))
+    mb.box((0, 0.22, TOP_Z + 0.02), (0.26, 0.06, 0.07), "#1F3A93")
+
+
+def _facial_hair(mb, style, look):
+    col, skin = look["hair_color"], look["skin_tone"]
+    if style == "stubble":
+        rnd = random.Random(3)
+        dot = mix(col, skin, 0.5)
+        mb.box((0, FACE_Y - 0.001, 1.53), (0.44, 0.004, 0.11), mix(skin, col, 0.18))
+        for _ in range(80):
+            x = rnd.uniform(-0.24, 0.24)
+            z = rnd.uniform(1.48, 1.63 - 0.12 * (abs(x) / 0.24) ** 2)
+            if abs(x) < 0.07 and 1.565 < z < 1.6:
+                continue
+            mb.box((x, FACE_Y - 0.004, z), (0.011, 0.006, 0.011), dot)
+        for sx in (-1, 1):
+            for _ in range(18):
+                mb.box((sx * 0.281, rnd.uniform(-0.2, 0.05), rnd.uniform(1.5, 1.66)), (0.006, 0.011, 0.011), dot)
+        return
+    if style in ("mustache", "beard", "goatee"):
+        mb.rbox((0, FACE_Y - 0.014, 1.615), (0.18, 0.03, 0.035), col, radius=0.012)
+    if style == "beard":
+        mb.rbox((0, FACE_Y - 0.01, 1.51), (0.54, 0.05, 0.13), col, radius=0.03)
+        for sx in (-1, 1):
+            mb.rbox((sx * 0.27, -0.06, 1.6), (0.05, 0.36, 0.28), col, radius=0.02)
+            mb.box((sx * 0.15, FACE_Y - 0.012, 1.575), (0.1, 0.03, 0.06), col)
+    elif style == "goatee":
+        mb.rbox((0, FACE_Y - 0.012, 1.525), (0.13, 0.035, 0.09), col, radius=0.015)
+
+
+def _glasses(mb, style):
+    frame = "#141414"
+    y, z = FACE_Y - 0.035, EYE_Z
+    if style == "none":
+        return
+    for sx in (-1, 1):
+        cx = sx * EYE_X
+        if style == "round":
+            for k in range(20):
+                a = 2 * math.pi * k / 20
+                mb.box((cx + 0.098 * math.cos(a), y, z + 0.098 * math.sin(a)), (0.036, 0.02, 0.02), frame,
+                       rot=(0, -(a + math.pi / 2), 0))
+        elif style == "square":
+            mb.box((cx, y, z + 0.085), (0.2, 0.02, 0.026), frame)
+            mb.box((cx, y, z - 0.085), (0.2, 0.02, 0.026), frame)
+            mb.box((cx - 0.1, y, z), (0.026, 0.02, 0.19), frame)
+            mb.box((cx + 0.1, y, z), (0.026, 0.02, 0.19), frame)
+        else:
+            mb.rbox((cx, y, z - 0.005), (0.2, 0.025, 0.13), "#0A0A10", radius=0.025)
+            mb.box((cx - 0.04, y - 0.014, z + 0.03), (0.05, 0.004, 0.015), "#9AA6C8", mat=1)
+        mb.box((sx * 0.285, -0.12, z + 0.04), (0.02, 0.3, 0.02), frame)
+        mb.box((sx * 0.218, y, z + 0.04), (0.04, 0.02, 0.02), frame)
+    mb.box((0, y, z + 0.035), (0.05, 0.02, 0.02), frame)
+
+
+def cap_color(look):
+    shirt = look["shirt_color"]
+    return shirt if saturation(shirt) > 0.25 else "#2563EB"
 
 
 def _accessory_head(mb, acc, look):
-    lift = HAT_LIFT.get(look["hair_style"], 0.0)
-    shirt = look["shirt_color"]
+    big = {"afro": 0.12, "curly": 0.04, "mohawk": 0.1, "spiky": 0.08, "bun": 0.0}.get(look["hair_style"], 0.0)
+    top = TOP_Z + big * 0.5
     if acc == "cap":
-        c = shade(shirt, 0.8)
-        mb.box((0, 0.01, 1.87 + lift), (0.48, 0.48, 0.14), c)
-        mb.box((0, -0.33, 1.82 + lift), (0.44, 0.26, 0.03), c)
-        mb.box((0, 0.01, 1.95 + lift), (0.06, 0.06, 0.03), "#FFFFFF")
+        c = cap_color(look)
+        w = 0.64 + big
+        mb.rbox((0, 0.02, top + 0.03), (w, w - 0.02, 0.2), c, radius=0.08, segments=3)
+        mb.rbox((0, -0.38 - big * 0.5, top - 0.045), (w * 0.82, 0.34, 0.035), shade(c, 0.8), radius=0.015,
+                rot=(0.12, 0, 0))
+        mb.box((0, FACE_Y - 0.06 - big * 0.5, top + 0.0), (w * 0.9, 0.02, 0.1), c)
+        mb.ball((0, 0.02, top + 0.14), 0.035, shade(c, 0.8), subdiv=1)
+        mb.box((0, FACE_Y - 0.075 - big * 0.5, top + 0.03), (0.12, 0.01, 0.06), "#FFFFFF")
     elif acc == "beanie":
-        c = shade(shirt, 0.9)
-        mb.box((0, 0.01, 1.88 + lift), (0.48, 0.48, 0.2), c)
-        mb.box((0, 0.01, 1.79 + lift), (0.5, 0.5, 0.07), shade(c, 0.8))
-        mb.ball((0, 0.01, 2.02 + lift), 0.07, "#F8F9FA", subdiv=1)
+        c = cap_color(look)
+        mb.rbox((0, 0.02, top + 0.05), (0.64 + big, 0.6 + big, 0.26), c, radius=0.1, segments=3)
+        mb.rbox((0, 0.02, top - 0.07), (0.66 + big, 0.62 + big, 0.09), shade(c, 0.8), radius=0.03)
+        mb.ball((0, 0.02, top + 0.22), 0.08, "#F8F9FA", subdiv=1)
     elif acc == "headphones":
-        mb.box((0, 0, 1.87 + lift), (0.4, 0.07, 0.05), "#222222")
+        mb.rbox((0, 0, top + 0.06), (0.52 + big, 0.08, 0.06), "#222222", radius=0.02)
         for sx in (-1, 1):
-            mb.box((sx * 0.245, 0, 1.76 + lift / 2), (0.04, 0.07, 0.22 + lift), "#222222")
-            mb.box((sx * 0.245, 0, 1.63), (0.09, 0.17, 0.19), "#E63946")
+            mb.box((sx * (0.31 + big * 0.5), 0, 1.92 + big * 0.3), (0.05, 0.08, 0.26 + big), "#222222")
+            mb.rbox((sx * (0.31 + big * 0.5), 0, 1.74), (0.1, 0.2, 0.22), "#E63946", radius=0.03)
     elif acc == "cowboy_hat":
         brown = "#8B5A2B"
-        mb.cyl((0, 0, 1.84 + lift), 0.44, 0.035, brown, segs=12)
+        mb.cyl((0, 0, top + 0.01), 0.58 + big, 0.04, brown, segs=14)
         for sx in (-1, 1):
-            mb.box((sx * 0.4, 0, 1.88 + lift), (0.1, 0.5, 0.06), brown)
-        mb.box((0, 0.0, 1.97 + lift), (0.32, 0.32, 0.22), brown)
-        mb.box((0, 0.0, 1.9 + lift), (0.33, 0.33, 0.05), "#3D2817")
+            mb.box((sx * (0.52 + big), 0, top + 0.06), (0.12, 0.6, 0.07), brown)
+        mb.rbox((0, 0, top + 0.13), (0.42, 0.42, 0.26), brown, radius=0.05)
+        mb.box((0, 0, top + 0.05), (0.43, 0.43, 0.06), "#3D2817")
     elif acc == "crown":
-        gold = "#F2C230"
-        mb.cyl((0, 0, 1.87 + lift), 0.2, 0.1, gold, segs=8)
+        mb.cyl((0, 0, top + 0.04), 0.26, 0.12, GOLD, segs=8)
         for k in range(8):
             a = 2 * math.pi * k / 8 + math.pi / 8
-            mb.cyl((0.18 * math.cos(a), 0.18 * math.sin(a), 1.97 + lift), 0.05, 0.12, gold, segs=4, radius2=0.0)
-        mb.box((0, -0.19, 1.87 + lift), (0.05, 0.03, 0.05), "#E63946", mat=1)
+            mb.cyl((0.24 * math.cos(a), 0.24 * math.sin(a), top + 0.16), 0.06, 0.14, GOLD, segs=4, radius2=0.0)
+        mb.box((0, -0.25, top + 0.04), (0.06, 0.03, 0.06), "#E63946", mat=1)
+
+
+# ---------------------------------------------------------------- body
+
+def _hand(mb, x, skin):
+    inward = 1 if x < 0 else -1
+    mb.rbox((x, -0.01, HAND_Z), (0.2, 0.21, 0.17), skin, radius=0.04)
+    mb.rbox((x + inward * 0.08, -0.09, HAND_Z + 0.04), (0.07, 0.08, 0.1), skin, radius=0.02)
 
 
 def _arm(mb, x, look, sleeve):
     skin, shirt = look["skin_tone"], look["shirt_color"]
+    style = look["shirt_style"]
     if sleeve == "full":
-        mb.box((x, 0, 1.11), (0.35, 0.35, 0.58), shirt)
-        mb.box((x, 0, 0.76), (0.33, 0.33, 0.12), skin)
-        if look["shirt_style"] == "suit":
-            mb.box((x, 0, 0.83), (0.355, 0.355, 0.04), "#F8F9FA")
-        if look["shirt_style"] == "armor":
-            mb.box((x * 1.02, 0, 1.33), (0.43, 0.43, 0.16), SILVER)
-            mb.box((x, 0, 0.88), (0.38, 0.38, 0.17), SILVER)
-            mb.box((x, -0.19, 0.88), (0.12, 0.02, 0.1), GOLD)
+        mb.rbox((x, 0, 1.13), (0.24, 0.26, 0.6), shirt, radius=0.05)
+        mb.box((x, 0, 0.855), (0.25, 0.27, 0.05), shade(shirt, 0.75) if style != "suit" else "#F8F9FA")
+        if style == "jacket":
+            mb.box((x, -0.132, 1.1), (0.012, 0.01, 0.3), SILVER)
     elif sleeve == "short":
-        mb.box((x, 0, 1.25), (0.37, 0.37, 0.3), shirt)
-        mb.box((x, 0, 0.98), (0.34, 0.34, 0.56), skin)
+        mb.rbox((x, 0, 1.28), (0.26, 0.28, 0.28), shirt, radius=0.05)
+        mb.box((x, 0, 1.15), (0.265, 0.285, 0.03), shade(shirt, 0.85))
+        mb.rbox((x, 0, 1.0), (0.21, 0.23, 0.42), skin, radius=0.04)
     else:
-        mb.box((x, 0, 1.05), (0.35, 0.35, 0.7), skin)
+        mb.rbox((x, 0, 1.1), (0.22, 0.24, 0.62), skin, radius=0.05)
+    if style == "armor":
+        mb.rbox((x * 1.03, 0, 1.36), (0.32, 0.33, 0.15), SILVER, radius=0.05)
+        mb.rbox((x, 0, 0.9), (0.27, 0.29, 0.16), SILVER, radius=0.03)
+        mb.box((x, -0.15, 0.9), (0.1, 0.02, 0.08), GOLD)
+    _hand(mb, x, skin)
 
 
 def _torso(mb, look):
     style = look["shirt_style"]
     shirt, skin = look["shirt_color"], look["skin_tone"]
-    mb.box((0, 0, 1.05), (0.7, 0.35, 0.7), shirt)
-    front = -0.176
+    mb.rbox((0, 0, 1.11), (0.64, 0.34, 0.62), shirt, radius=0.05)
+    front = -0.172
     if style == "tshirt":
-        mb.box((0, front, 1.38), (0.2, 0.01, 0.05), skin)
+        mb.box((0, front, 1.395), (0.2, 0.012, 0.05), skin)
+        mb.box((0, front - 0.002, 1.41), (0.26, 0.012, 0.03), shade(shirt, 0.86))
+        mb.box((0, front - 0.002, 0.83), (0.62, 0.012, 0.025), shade(shirt, 0.9))
+        mb.box((-0.17, front - 0.003, 1.26), (0.1, 0.01, 0.1), shade(shirt, 0.92))
     elif style == "hoodie":
-        mb.box((0, 0.2, 1.37), (0.55, 0.12, 0.22), shade(shirt, 0.82))
-        mb.box((0, front - 0.004, 0.86), (0.42, 0.012, 0.17), shade(shirt, 0.85))
+        mb.rbox((0, 0.18, 1.4), (0.5, 0.14, 0.2), shade(shirt, 0.82), radius=0.04)
+        mb.box((0, front - 0.004, 0.92), (0.4, 0.012, 0.16), shade(shirt, 0.85))
         for sx in (-1, 1):
-            mb.box((sx * 0.07, front - 0.008, 1.25), (0.025, 0.012, 0.16), "#F8F9FA")
+            mb.box((sx * 0.06, front - 0.008, 1.27), (0.022, 0.012, 0.16), "#F8F9FA")
     elif style == "suit":
-        mb.box((0, front - 0.002, 1.24), (0.2, 0.01, 0.32), "#F8F9FA")
+        mb.box((0, front - 0.002, 1.25), (0.2, 0.01, 0.32), "#F8F9FA")
         tie = "#1D3557" if castlib.hex_to_srgb(shirt)[0] > 0.6 else "#C1121F"
         mb.box((0, front - 0.008, 1.2), (0.06, 0.01, 0.36), tie)
-        mb.box((0, front - 0.009, 1.37), (0.08, 0.012, 0.04), tie)
+        mb.box((0, front - 0.009, 1.38), (0.08, 0.012, 0.045), tie)
         for sx in (-1, 1):
-            mb.box((sx * 0.13, front - 0.01, 1.24), (0.06, 0.012, 0.3), shade(shirt, 0.7), rot=(0, sx * 0.35, 0))
-        mb.box((0.2, front - 0.01, 1.28), (0.08, 0.012, 0.02), "#F8F9FA")
+            mb.box((sx * 0.13, front - 0.012, 1.25), (0.07, 0.014, 0.32), shade(shirt, 0.7), rot=(0, sx * 0.35, 0))
     elif style == "jacket":
-        mb.box((0, front - 0.002, 1.05), (0.18, 0.01, 0.7), "#E9ECEF")
+        inner = "#E9E9EC" if luma(shirt) < 0.55 else "#2B2D42"
+        mb.box((0, front - 0.002, 1.1), (0.2, 0.012, 0.6), inner)
+        mb.box((0, front - 0.004, 1.22), (0.13, 0.012, 0.012), shade(inner, 0.8))
         for sx in (-1, 1):
-            mb.box((sx * 0.13, front - 0.01, 1.35), (0.12, 0.02, 0.1), shade(shirt, 0.75))
-            mb.box((sx * 0.095, front - 0.006, 1.05), (0.012, 0.012, 0.68), shade(shirt, 0.6))
+            mb.box((sx * 0.108, front - 0.008, 1.0), (0.014, 0.012, 0.36), SILVER)
+            mb.box((sx * 0.14, front - 0.014, 1.29), (0.08, 0.016, 0.24), shade(shirt, 0.72), rot=(0, sx * 0.4, 0))
+            mb.rbox((sx * 0.15, -0.06, 1.45), (0.14, 0.2, 0.09), shade(shirt, 0.82), radius=0.02)
+            mb.box((sx * 0.2, front - 0.006, 0.92), (0.13, 0.01, 0.02), shade(shirt, 0.6))
+        mb.box((0, front - 0.004, 0.83), (0.63, 0.014, 0.05), shade(shirt, 0.78))
     elif style == "tanktop":
         for sx in (-1, 1):
-            mb.box((sx * 0.25, 0, 1.36), (0.2, 0.36, 0.08), skin)
-        mb.box((0, front - 0.002, 1.36), (0.18, 0.01, 0.08), skin)
+            mb.box((sx * 0.24, 0, 1.37), (0.18, 0.35, 0.09), skin)
+        mb.box((0, front - 0.002, 1.37), (0.18, 0.01, 0.09), skin)
     elif style == "armor":
-        mb.cyl((0, 0, 0.47), 0.56, 0.52, shirt, segs=8, radius2=0.4, rot=(0, 0, math.pi / 8))
-        mb.cyl((0, 0, 0.23), 0.565, 0.05, "#F2F2F2", segs=8, rot=(0, 0, math.pi / 8))
-        mb.box((0, front - 0.02, 1.17), (0.62, 0.05, 0.38), SILVER)
-        mb.box((0, front - 0.03, 1.3), (0.48, 0.05, 0.1), "#E3E9F0")
-        mb.box((0, front - 0.05, 1.12), (0.05, 0.02, 0.28), GOLD)
-        mb.box((0, 0.195, 1.17), (0.62, 0.04, 0.38), SILVER)
-        mb.box((0, 0, 0.76), (0.73, 0.38, 0.07), SILVER)
-        mb.box((0, front - 0.03, 0.76), (0.12, 0.03, 0.08), GOLD)
-        mb.box((0, front - 0.002, 1.38), (0.2, 0.01, 0.05), skin)
+        mb.cyl((0, 0, 0.5), 0.5, 0.58, shirt, segs=10, radius2=0.36, rot=(0, 0, math.pi / 10))
+        mb.cyl((0, 0, 0.23), 0.505, 0.05, "#F2F2F2", segs=10, rot=(0, 0, math.pi / 10))
+        mb.rbox((0, front - 0.02, 1.17), (0.6, 0.06, 0.38), SILVER, radius=0.03)
+        mb.box((0, front - 0.05, 1.3), (0.46, 0.02, 0.08), "#E3E9F0")
+        mb.box((0, front - 0.055, 1.12), (0.05, 0.02, 0.28), GOLD)
+        mb.rbox((0, 0.185, 1.17), (0.6, 0.04, 0.38), SILVER, radius=0.02)
+        mb.box((0, 0, 0.82), (0.66, 0.36, 0.07), SILVER)
+        mb.box((0, front - 0.03, 0.82), (0.12, 0.03, 0.08), GOLD)
+        mb.box((0, front - 0.004, 1.4), (0.2, 0.01, 0.05), skin)
     elif style == "dress":
-        mb.cyl((0, 0, 0.52), 0.52, 0.42, shirt, segs=8, radius2=0.4, rot=(0, 0, math.pi / 8))
-        mb.box((0, 0, 0.74), (0.72, 0.37, 0.05), shade(shirt, 0.75))
-        mb.box((0, front - 0.002, 1.36), (0.24, 0.01, 0.08), skin)
-    if style not in ("dress", "armor"):
-        mb.box((0, 0, 0.73), (0.71, 0.36, 0.05), "#2B2B2B")
-    if look["accessory"] == "bowtie":
-        bt = "#C1121F" if style != "suit" else "#111111"
-        for sx in (-1, 1):
-            mb.box((sx * 0.055, front - 0.03, 1.355), (0.09, 0.03, 0.08), bt, rot=(0, sx * 0.3, 0))
-        mb.box((0, front - 0.035, 1.355), (0.04, 0.03, 0.04), shade(bt, 0.7))
+        mb.cyl((0, 0, 0.56), 0.48, 0.48, shirt, segs=10, radius2=0.36, rot=(0, 0, math.pi / 10))
+        mb.box((0, 0, 0.82), (0.66, 0.36, 0.05), shade(shirt, 0.75))
+        mb.box((0, front - 0.002, 1.38), (0.24, 0.01, 0.08), skin)
+    if style not in ("dress", "armor", "jacket"):
+        mb.box((0, 0, 0.83), (0.65, 0.35, 0.05), "#2B2B2B")
 
 
 def _leg(mb, x, look):
-    if look["shirt_style"] == "dress":
-        mb.box((x, 0, 0.4), (0.33, 0.33, 0.6), look["skin_tone"])
+    style = look["shirt_style"]
+    leg = look["skin_tone"] if style == "dress" else look["pants_color"]
+    mb.rbox((x, 0, 0.46), (0.29, 0.31, 0.7), leg, radius=0.04)
+    if style == "armor":
+        mb.rbox((x, -0.02, 0.17), (0.32, 0.36, 0.34), SILVER, radius=0.04)
+        mb.box((x, -0.2, 0.3), (0.08, 0.02, 0.08), GOLD)
     else:
-        mb.box((x, 0, 0.4), (0.35, 0.35, 0.6), look["pants_color"])
-    if look["shirt_style"] == "armor":
-        mb.box((x, -0.02, 0.15), (0.37, 0.41, 0.3), SILVER)
-    else:
-        mb.box((x, -0.02, 0.06), (0.36, 0.4, 0.12), "#2B2B2B")
+        mb.rbox((x, -0.04, 0.07), (0.31, 0.4, 0.14), "#242428", radius=0.04)
+        mb.box((x, -0.04, 0.012), (0.315, 0.405, 0.025), "#ECECEC")
 
 
-def _sword(mb, x):
-    z = 0.76
-    mb.cyl((x, -0.07, z), 0.035, 0.3, "#1F3A93", segs=6, rot=(math.pi / 2, 0, 0))
-    mb.ball((x, 0.1, z), 0.05, GOLD, subdiv=1)
-    mb.box((x, -0.24, z), (0.07, 0.07, 0.36), GOLD)
-    mb.box((x, -0.24, z), (0.09, 0.09, 0.09), "#2A4FB5")
+def _sword(mb):
+    x, _, z = HAND_R
+    mb.cyl((x, -0.04, z), 0.035, 0.32, "#1F3A93", segs=6, rot=(math.pi / 2, 0, 0))
+    mb.ball((x, 0.14, z), 0.05, GOLD, subdiv=1)
+    mb.rbox((x, -0.22, z), (0.07, 0.07, 0.38), GOLD, radius=0.015)
+    mb.box((x, -0.22, z), (0.09, 0.09, 0.09), "#2A4FB5")
     mb.box((x, -0.82, z), (0.035, 1.1, 0.11), "#E6EEF5")
     mb.box((x, -0.82, z), (0.04, 1.0, 0.03), "#9DB4CC")
     mb.cyl((x, -1.42, z), 0.055, 0.12, "#E6EEF5", segs=4, radius2=0.0, rot=(math.pi / 2, 0, 0))
 
 
 def _camera_rig(mb):
-    body, x, z = "#1B1B1F", -0.31, 1.56
-    mb.box((x, -0.1, z - 0.13), (0.22, 0.3, 0.05), "#3A3A40")
-    mb.box((x, -0.14, z), (0.2, 0.44, 0.26), body)
-    mb.cyl((x, -0.44, z), 0.085, 0.2, "#2B2B30", segs=10, rot=(math.pi / 2, 0, 0))
-    mb.cyl((x, -0.55, z), 0.065, 0.02, "#5BC0EB", segs=10, rot=(math.pi / 2, 0, 0), mat=1)
-    mb.box((x, -0.58, z), (0.26, 0.05, 0.22), body)
-    mb.box((x, -0.15, z + 0.17), (0.035, 0.32, 0.035), "#3A3A40")
-    mb.box((x + 0.13, -0.27, z + 0.12), (0.02, 0.15, 0.1), "#111111")
-    mb.box((x + 0.141, -0.27, z + 0.12), (0.005, 0.12, 0.08), "#7CFF4F", mat=1)
-    mb.box((x - 0.1, -0.33, z + 0.07), (0.03, 0.03, 0.03), "#FF2020", mat=1)
-    mb.box((x + 0.05, 0.1, z + 0.02), (0.12, 0.08, 0.08), "#2B2B30")
+    body, x, z = "#1B1B1F", -0.42, 1.6
+    mb.rbox((x, -0.1, z - 0.15), (0.24, 0.32, 0.05), "#3A3A40", radius=0.01)
+    mb.rbox((x, -0.14, z), (0.22, 0.46, 0.28), body, radius=0.03)
+    mb.cyl((x, -0.46, z), 0.095, 0.22, "#2B2B30", segs=12, rot=(math.pi / 2, 0, 0))
+    mb.cyl((x, -0.575, z), 0.075, 0.02, "#5BC0EB", segs=12, rot=(math.pi / 2, 0, 0), mat=1)
+    mb.box((x, -0.6, z), (0.28, 0.05, 0.24), body)
+    mb.box((x, -0.15, z + 0.18), (0.04, 0.34, 0.04), "#3A3A40")
+    mb.box((x + 0.14, -0.28, z + 0.12), (0.02, 0.16, 0.11), "#111111")
+    mb.box((x + 0.151, -0.28, z + 0.12), (0.005, 0.13, 0.085), "#7CFF4F", mat=1)
+    mb.box((x - 0.11, -0.34, z + 0.08), (0.03, 0.03, 0.03), "#FF2020", mat=1)
+
+
+def _cape(mb):
+    mb.rbox((0, 0.22, 0.98), (0.66, 0.05, 0.92), "#1F3A93", radius=0.02, rot=(-0.12, 0, 0))
+    mb.box((0, 0.25, 0.53), (0.68, 0.05, 0.06), GOLD, rot=(-0.12, 0, 0))
+    mb.rbox((0, 0.2, 1.42), (0.7, 0.12, 0.08), GOLD, radius=0.02)
+    for sx in (-1, 1):
+        mb.ball((sx * 0.25, -0.18, 1.38), 0.05, GOLD, subdiv=1)
+
+
+def _banner(mb):
+    x, _, z = HAND_R
+    mb.cyl((x, -1.0, z), 0.03, 2.6, "#6B4A2B", segs=6, rot=(math.pi / 2, 0, 0))
+    mb.ball((x, -2.32, z), 0.07, GOLD, subdiv=1)
+    mb.box((x - 0.55, -1.75, z), (1.1, 1.0, 0.04), "#F2994A", rot=(0, 0, 0))
+    mb.box((x - 0.55, -1.75, z + 0.025), (0.95, 0.85, 0.01), "#E07A1F")
+
+
+def _laptop(mb):
+    x, _, z = (ARM_X, -0.01, HAND_Z)
+    mb.rbox((x - 0.05, -0.25, z + 0.05), (0.42, 0.3, 0.03), "#C9CDD3", radius=0.01)
+    mb.box((x - 0.05, -0.12, z + 0.2), (0.42, 0.02, 0.28), "#B5BAC2", rot=(-0.3, 0, 0))
+    mb.box((x - 0.05, -0.14, z + 0.22), (0.1, 0.01, 0.1), "#F26522", rot=(-0.3, 0, 0))
+
+
+def _lanyard(mb):
+    for sx in (-1, 1):
+        mb.box((sx * 0.1, -0.176, 1.27), (0.025, 0.01, 0.28), "#2F6FDB", rot=(0, sx * 0.3, 0))
+    mb.rbox((0, -0.185, 1.08), (0.13, 0.015, 0.17), "#FFFFFF", radius=0.01)
+    mb.box((0, -0.195, 1.12), (0.1, 0.006, 0.03), "#F26522")
+
+
+def _y_logo(mb):
+    w = 0.045
+    for sx in (-1, 1):
+        mb.box((sx * 0.055, -0.176, 1.2), (w, 0.012, 0.16), "#FFFFFF", rot=(0, sx * 0.6, 0))
+    mb.box((0, -0.176, 1.07), (w, 0.012, 0.14), "#FFFFFF")
 
 
 def _make_armature(name, collection):
@@ -351,8 +520,11 @@ def _make_armature(name, collection):
     return rig
 
 
-def attach(rig, bone_name, mb, obj_name, collection, bevel=0.012):
+
+def attach(rig, bone_name, mb, obj_name, collection, bevel=0.0, outline=0.0):
     obj = mb.to_object(obj_name, collection, bevel=bevel)
+    if outline:
+        castlib.add_outline(obj, outline)
     bone = rig.data.bones[bone_name]
     obj.parent = rig
     obj.parent_type = "BONE"
@@ -361,44 +533,90 @@ def attach(rig, bone_name, mb, obj_name, collection, bevel=0.012):
     return obj
 
 
-def build_character(look, name="Cast", collection=None, variant=0, props=()):
-    """props: extra held items for this shot ("sword", "camera", "glow"), on top of look["accessory"]."""
+EYE_COLORS = {"armor": "#2E8B57"}
+
+
+SABER_OUTFIT = {"shirt_style": "armor", "shirt_color": "#2A4FB5", "pants_color": "#2A4FB5"}
+
+
+def build_character(look, name="Cast", collection=None, variant=0, props=(), outfit=None, outline=True):
+    """props: extra items for this shot ("sword", "camera", "glow", "cape", "banner", "laptop", "lanyard", "ylogo"),
+    on top of look["accessory"]. outfit="saber" swaps in the armour, cape and sword but keeps face and hair."""
     collection = collection or bpy.context.scene.collection
     look = sanitize_look(look, variant)
+    if outfit == "saber":
+        look.update(SABER_OUTFIT)
+        if look["accessory"] in ("bowtie", "camera"):
+            look["accessory"] = "none"
+        props = set(props or ()) | {"sword", "cape"}
     props = set(props or ()) | {look["accessory"]}
     rig = _make_armature(name, collection)
     rig["look"] = str(look)
+    OUT = 0.011 if outline else 0.0
+    hat = look["accessory"] in ("cap", "beanie", "cowboy_hat")
 
     head = MeshBuilder()
-    head.box((0, 0, HEAD_Z), (0.42, 0.42, 0.42), look["skin_tone"])
-    head.box((0, 0, 1.43), (0.24, 0.24, 0.06), look["skin_tone"])
-    _face(head)
-    _hair(head, look["hair_style"], look["hair_color"])
-    _facial_hair(head, look["facial_hair"], look["hair_color"], look["skin_tone"])
+    _head_base(head, look)
+    _eyes(head, look, EYE_COLORS.get(look["shirt_style"], "#4A2C1A" if luma(look["skin_tone"]) < 0.8 else "#3B6EA5"))
+    _mouth_closed(head)
+    _facial_hair(head, look["facial_hair"], look)
     _glasses(head, look["glasses"])
+    attach(rig, "head", head, name + ".head", collection, outline=OUT)
+
+    hair = MeshBuilder()
+    _hair(hair, look, hat)
     if look["shirt_style"] == "armor" and look["hair_style"] in ("bun", "ponytail", "long"):
-        _saber_hair(head, look["hair_color"])
-    _accessory_head(head, look["accessory"], look)
-    attach(rig, "head", head, name + ".head", collection)
+        _saber_hair(hair, look["hair_color"])
+    _accessory_head(hair, look["accessory"], look)
+    if hair.bm.verts:
+        attach(rig, "head", hair, name + ".hair", collection, outline=OUT)
+    else:
+        hair.bm.free()
+
+    lids = MeshBuilder()
+    _lids(lids, look)
+    lid_obj = attach(rig, "head", lids, name + ".lids", collection)
+    lid_obj.hide_render = True
+    mouth = MeshBuilder()
+    _mouth_open(mouth)
+    mouth_obj = attach(rig, "head", mouth, name + ".mouth_open", collection)
+    mouth_obj.hide_render = True
+    rig["lids"] = lid_obj.name
+    rig["mouth_open"] = mouth_obj.name
 
     torso = MeshBuilder()
     _torso(torso, look)
     if "camera" in props:
         _camera_rig(torso)
-    attach(rig, "torso", torso, name + ".torso", collection)
+    if "cape" in props:
+        _cape(torso)
+    if "lanyard" in props:
+        _lanyard(torso)
+    if "ylogo" in props:
+        _y_logo(torso)
+    if look["accessory"] == "bowtie":
+        bt = "#C1121F" if look["shirt_style"] != "suit" else "#111111"
+        for sx in (-1, 1):
+            torso.box((sx * 0.06, -0.2, 1.39), (0.1, 0.03, 0.09), bt, rot=(0, sx * 0.3, 0))
+        torso.box((0, -0.205, 1.39), (0.045, 0.03, 0.045), shade(bt, 0.7))
+    attach(rig, "torso", torso, name + ".torso", collection, outline=OUT)
 
     style = look["shirt_style"]
     sleeve = "full" if style in ("hoodie", "suit", "jacket", "armor") else ("none" if style == "tanktop" else "short")
-    for side, x in (("L", 0.525), ("R", -0.525)):
+    for side, x in (("L", ARM_X), ("R", -ARM_X)):
         arm = MeshBuilder()
         _arm(arm, x, look, sleeve)
-        if side == "R" and "sword" in props:
-            _sword(arm, x)
+        if side == "R" and "sword" in props and "banner" not in props:
+            _sword(arm)
+        if side == "R" and "banner" in props:
+            _banner(arm)
+        if side == "L" and "laptop" in props:
+            _laptop(arm)
         if side == "R" and "glow" in props:
-            arm.ball((x, 0, 0.72), 0.13, "#FF1E3C", subdiv=1, mat=1)
-            arm.box((x, -0.18, 0.86), (0.16, 0.02, 0.16), "#FF1E3C", rot=(0, 0.785, 0), mat=1)
-        attach(rig, "arm_" + side, arm, f"{name}.arm_{side}", collection)
+            arm.ball((x, -0.01, HAND_Z), 0.15, "#FF1E3C", subdiv=1, mat=1)
+            arm.box((x, -0.13, HAND_Z + 0.16), (0.16, 0.02, 0.16), "#FF1E3C", rot=(0, 0.785, 0), mat=1)
+        attach(rig, "arm_" + side, arm, f"{name}.arm_{side}", collection, outline=OUT)
         leg = MeshBuilder()
-        _leg(leg, x / 3.0, look)
-        attach(rig, "leg_" + side, leg, f"{name}.leg_{side}", collection)
+        _leg(leg, x * 0.155 / ARM_X, look)
+        attach(rig, "leg_" + side, leg, f"{name}.leg_{side}", collection, outline=OUT)
     return rig

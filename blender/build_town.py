@@ -19,6 +19,8 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import castlib  # noqa: E402
 from castlib import MeshBuilder  # noqa: E402
 
+TOWN_VERSION = 4
+
 CHAR_MARKS = {
     "center": (0.0, 0.0, 0.0),
     "left": (-1.7, 0.4, 0.0),
@@ -520,6 +522,138 @@ def loc_summoning_room(mb, coll):
     point_light(coll, "summoning_room.candles_R", (5, 3, 1.5), "#FFA040", 150, 0.5)
 
 
+def y_logo(mb, center, size, bg="#F26522", fg="#FFFFFF", mat_bg=0, mat_fg=0, plane="xz"):
+    """Square YC-style badge with a blocky Y, facing -Y."""
+    x, y, z = center
+    mb.rbox((x, y, z), (size, 0.12, size), bg, radius=size * 0.06, mat=mat_bg)
+    w = size * 0.13
+    for sx in (-1, 1):
+        mb.box((x + sx * size * 0.14, y - 0.08, z + size * 0.15), (w, 0.04, size * 0.4), fg, rot=(0, sx * 0.62, 0), mat=mat_fg)
+    mb.box((x, y - 0.08, z - size * 0.17), (w, 0.04, size * 0.36), fg, mat=mat_fg)
+
+
+def loc_yc_hq(mb, coll):
+    mb.box((0, 6, -0.1), (30, 26, 0.2), "#D9D4CC")
+    for i in range(-14, 15, 2):
+        mb.box((i, 6, 0.005), (0.04, 26, 0.01), "#C8C2B8")
+    mb.box((0, 12, 5), (30, 0.4, 10), "#F4F1EA")
+    mb.box((0, 11.75, 1.0), (30, 0.1, 2.0), "#E9E4DA")
+    for side in (-1, 1):
+        mb.box((side * 13, 6, 5), (0.4, 14, 10), "#EDE8DF")
+    mb.box((0, 8.5, 0.35), (12, 4, 0.7), "#2B2D42")
+    mb.box((0, 6.48, 0.35), (12, 0.04, 0.7), "#F26522", mat=1)
+    y_logo(mb, (0, 11.5, 5.2), 4.0, mat_fg=1)
+    mb.box((0, 11.4, 8.3), (11, 0.1, 1.5), "#F26522")
+    text_object("yc_hq_demo_day", "DEMO DAY", coll, (0, 11.3, 8.25), 1.05, "#FFFFFF", extrude=0.03)
+    for sx in (-1, 1):
+        mb.box((sx * 8.5, 11.45, 4.5), (3.2, 0.08, 4.5), "#FFF4E6")
+        mb.box((sx * 8.5, 11.4, 4.5), (2.8, 0.06, 0.12), "#F26522")
+        for k in range(3):
+            mb.box((sx * 8.5, 11.4, 3.6 + k * 0.45), (2.4, 0.06, 0.08), "#9AA0A6")
+    for row in range(2):
+        for k in range(-5, 6):
+            if abs(k) < 2:
+                continue
+            x, y = k * 1.3, 3.0 + row * 1.6
+            mb.rbox((x, y, 0.45), (0.8, 0.8, 0.12), "#2B2D42", radius=0.04)
+            mb.rbox((x, y + 0.35, 0.85), (0.8, 0.12, 0.8), "#2B2D42", radius=0.04)
+            mb.box((x, y, 0.2), (0.1, 0.1, 0.4), "#555B66")
+    for sx in (-1, 1):
+        mb.box((sx * 4.2, 7.6, 1.15), (1.6, 0.8, 0.06), "#C9CDD3")
+        mb.box((sx * 4.2, 7.9, 1.4), (1.5, 0.05, 0.9), "#1B1B1F", rot=(-0.25, 0, 0))
+        mb.box((sx * 4.2, 7.87, 1.42), (1.3, 0.02, 0.7), "#58C4F6", rot=(-0.25, 0, 0), mat=1)
+    for k in range(-3, 4):
+        mb.cyl((k * 3.2, 7.0, 9.6), 0.25, 0.4, "#2B2D42", segs=8)
+        mb.cyl((k * 3.2, 7.0, 9.35), 0.18, 0.05, "#FFF3C4", segs=8, mat=1)
+    for px in (-11.5, 11.5):
+        mb.cyl((px, 10.5, 0.45), 0.45, 0.9, "#E9E4DA", segs=8)
+        mb.ball((px, 10.5, 1.5), 0.8, "#3FA34D", subdiv=1)
+    point_light(coll, "yc_hq.stage", (0, 5, 5), "#FFE2C4", 1500, 2.0)
+
+
+def merlons(mb, x0, x1, y, z, depth, col, w=1.0, h=1.0):
+    n = int((x1 - x0) / (w * 2))
+    for k in range(n + 1):
+        mb.box((x0 + k * w * 2, y, z + h / 2), (w, depth, h), col)
+
+
+def capy_banner(coll, mb, x, y, z, h=6.0, w=2.2, name="banner"):
+    mb.box((x, y, z - h / 2), (w, 0.08, h), "#F2994A")
+    mb.box((x, y - 0.03, z - h / 2), (w * 0.82, 0.04, h * 0.92), "#E07A1F")
+    mb.box((x, y - 0.06, z - h + 0.25), (w, 0.04, 0.3), "#FFF1D6")
+    mb.box((x, y + 0.1, z + 0.1), (w + 0.4, 0.15, 0.15), "#5B3A1E")
+    text_object(name, "C\nA\nP\nY", coll, (x, y - 0.09, z - h * 0.45), w * 0.5, "#FFFFFF", extrude=0.02)
+
+
+def castle_keep(mb, coll, y0=14.0, base_z=0.0, stone="#8E8A9C", dark="#5F5A70"):
+    mb.box((0, y0 + 1.5, base_z + 4.5), (30, 3, 9), stone)
+    merlons(mb, -15, 15, y0, base_z + 9, 3.0, stone)
+    for k in range(-14, 15, 2):
+        mb.box((k, y0 - 0.02, base_z + 1 + (k % 4)), (1.6, 0.04, 0.06), dark)
+    for tx in (-11, 11):
+        mb.cyl((tx, y0 + 1.5, base_z + 6.5), 3.0, 13, stone, segs=10)
+        mb.cyl((tx, y0 + 1.5, base_z + 15.5), 3.4, 5, "#2B4FA8", segs=10, radius2=0.0)
+        for k in range(3):
+            mb.box((tx, y0 - 1.5, base_z + 4 + k * 3), (0.5, 0.2, 1.0), "#FFC66B", mat=1)
+    mb.box((0, y0 + 1.5, base_z + 6.5), (8, 4, 13), stone)
+    merlons(mb, -4, 4, y0 - 0.4, base_z + 13, 4.6, stone, w=0.9)
+    mb.box((0, y0 - 0.55, base_z + 2.6), (3.6, 0.2, 5.2), "#2A1E17")
+    for k in range(-3, 4):
+        mb.box((k * 0.5, y0 - 0.7, base_z + 2.6), (0.08, 0.08, 5.0), "#3D3D46")
+    for k in range(6):
+        mb.box((0, y0 - 0.7, base_z + 0.5 + k * 0.9), (3.4, 0.08, 0.08), "#3D3D46")
+    for bx in (-6.5, 6.5):
+        capy_banner(coll, mb, bx, y0 - 0.1, base_z + 8.6, name=f"{coll.name}.banner{int(bx)}")
+    capy_banner(coll, mb, 0, y0 - 0.75, base_z + 12.5, h=4.4, w=2.6, name=f"{coll.name}.banner_gate")
+    for tx in (-3.2, 3.2):
+        mb.box((tx, y0 - 0.7, base_z + 3.5), (0.15, 0.3, 0.6), "#5B3A1E")
+        mb.ball((tx, y0 - 0.8, base_z + 4.0), 0.22, "#FF9F1C", subdiv=1, mat=1)
+
+
+def loc_capy_castle(mb, coll):
+    mb.box((0, 10, -0.1), (90, 80, 0.2), "#5E7F3A")
+    mb.box((0, 7, 0.0), (4, 14, 0.04), "#B79B6B")
+    random.seed(31)
+    for i in range(60):
+        mb.box((random.uniform(-40, 40), random.uniform(-15, 40), 0.03),
+               (random.uniform(0.6, 2.5), random.uniform(0.6, 2.5), 0.05), random.choice(["#4F6E30", "#6D8F45", "#58783A"]))
+    castle_keep(mb, coll, y0=16.0)
+    for (hx, hy, hw, hh) in [(-40, 50, 30, 10), (0, 60, 40, 14), (40, 52, 30, 9)]:
+        mb.ball((hx, hy, 0), hw / 2, "#3E4A6B", subdiv=2, scale=(1, 0.5, hh / (hw / 2)))
+    for (rx, ry) in [(-6, 2), (7, 3), (-12, 6), (13, 7)]:
+        mb.ball((rx, ry, 0.2), 0.6, "#7D7A86", subdiv=1, scale=(1.3, 1, 0.7))
+    for k in range(-6, 7):
+        mb.box((k * 1.2 - 14, 1.0, 0.45), (0.1, 0.1, 0.9), "#6B4A2B")
+    mb.box((-14, 1.0, 0.75), (14.4, 0.06, 0.08), "#6B4A2B")
+
+
+def loc_castle_wall(mb, coll):
+    stone, dark = "#8E8A9C", "#5F5A70"
+    mb.box((0, 0.2, -0.15), (44, 5.6, 0.3), "#76728A")
+    for k in range(-21, 22, 2):
+        mb.box((k, 0.6, 0.0), (0.04, 4.2, 0.02), dark)
+    mb.box((0, -2.6, -4.6), (44, 0.6, 9.2), stone)
+    merlons(mb, -21, 21, -2.6, 0.0, 0.6, stone, w=1.0, h=1.1)
+    mb.box((0, -2.6, 0.25), (44, 0.6, 0.5), stone)
+    mb.box((0, 2.75, 0.45), (44, 0.3, 0.9), stone)
+    for bx in (-8, 8):
+        capy_banner(coll, mb, bx, -3.0, -0.5, h=6.0, w=2.4, name=f"castle_wall.banner{bx}")
+    for tx in (-5.5, 5.5):
+        mb.box((tx, 2.4, 0.9), (0.15, 0.3, 1.8), "#5B3A1E")
+        mb.ball((tx, 2.3, 1.9), 0.22, "#FF9F1C", subdiv=1, mat=1)
+    for tx in (-16, 16):
+        mb.cyl((tx, 1.0, 2.0), 2.6, 13, stone, segs=10)
+        mb.cyl((tx, 1.0, 10.0), 3.0, 4.5, "#2B4FA8", segs=10, radius2=0.0)
+    castle_keep(mb, coll, y0=9.0, base_z=0.0)
+    mb.box((0, -30, -9.1), (120, 60, 0.2), "#5E7F3A")
+    random.seed(41)
+    for i in range(50):
+        mb.box((random.uniform(-50, 50), random.uniform(-58, -4), -8.98),
+               (random.uniform(0.8, 3), random.uniform(0.8, 3), 0.05), random.choice(["#4F6E30", "#6D8F45", "#58783A"]))
+    for (hx, hy, hw, hh) in [(-50, -70, 40, 14), (10, -80, 50, 18), (55, -68, 40, 12)]:
+        mb.ball((hx, hy, -9), hw / 2, "#3E4A6B", subdiv=2, scale=(1, 0.5, hh / (hw / 2)))
+
+
 MOODS = {
     "main_street": dict(sky="#8ECDF7", sun_color="#FFF4E0", sun_energy=4.0, sun_elev=50, sun_az=-35, ambient=1.0),
     "bank": dict(sky="#9AD3F7", sun_color="#FFF4E0", sun_energy=4.0, sun_elev=55, sun_az=30, ambient=1.0),
@@ -532,6 +666,9 @@ MOODS = {
     "cafe": dict(sky="#FFE8CC", sun_color="#FFD9A0", sun_energy=3.0, sun_elev=50, sun_az=25, ambient=0.9),
     "kaiju_city": dict(sky="#F28F3B", sun_color="#FFC07A", sun_energy=3.2, sun_elev=30, sun_az=35, ambient=0.8),
     "summoning_room": dict(sky="#07070F", sun_color="#8FB8FF", sun_energy=1.3, sun_elev=65, sun_az=15, ambient=0.55),
+    "yc_hq": dict(sky="#FFE8D2", sun_color="#FFE6C8", sun_energy=3.4, sun_elev=55, sun_az=20, ambient=1.0),
+    "capy_castle": dict(sky="#F28B3B", sun_color="#FFB070", sun_energy=3.6, sun_elev=16, sun_az=-35, ambient=0.75),
+    "castle_wall": dict(sky="#F07E36", sun_color="#FFB070", sun_energy=3.6, sun_elev=16, sun_az=35, ambient=0.75),
     "saloon": dict(sky="#FFB86B", sun_color="#FFD29D", sun_energy=4.0, sun_elev=30, sun_az=-40, ambient=0.9),
 }
 
@@ -540,6 +677,7 @@ BUILDERS = {
     "alley": loc_alley, "casino": loc_casino, "wasteland": loc_wasteland, "spaceship": loc_spaceship,
     "cafe": loc_cafe, "kaiju_city": loc_kaiju_city, "saloon": loc_saloon,
     "summoning_room": loc_summoning_room,
+    "yc_hq": loc_yc_hq, "capy_castle": loc_capy_castle, "castle_wall": loc_castle_wall,
 }
 
 
@@ -554,6 +692,7 @@ def build_location(name):
     mb = MeshBuilder()
     BUILDERS.get(name, generic_location)(mb, coll)
     obj = mb.to_object(name + ".set", coll)
+    castlib.add_outline(obj, 0.03)
     if name == "rooftop":
         sky = MeshBuilder()
         random.seed(11)
@@ -593,6 +732,8 @@ def build_town(out_path):
         coll.use_fake_user = True
     os.makedirs(os.path.dirname(out_path), exist_ok=True)
     bpy.ops.wm.save_as_mainfile(filepath=out_path, compress=False)
+    with open(out_path + ".version", "w") as f:
+        f.write(str(TOWN_VERSION))
     print(f"Saved town with {len(lib['locations'])} locations to {out_path}")
 
 

@@ -1,7 +1,7 @@
 import { spawn } from "node:child_process";
-import { existsSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { mkdir, readFile, rm, writeFile } from "node:fs/promises";
-import { hostname, tmpdir } from "node:os";
+import { homedir, hostname, tmpdir } from "node:os";
 import { dirname, join, resolve } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ConvexClient } from "convex/browser";
@@ -33,6 +33,8 @@ const client = new ConvexClient(CONVEX_URL);
 const log = (...args: unknown[]) => console.log(new Date().toISOString().slice(11, 19), ...args);
 
 type Plan = {
+  genre?: string;
+  music_path?: string;
   cast?: Array<{ id: string; name: string }>;
   shots?: Array<{ narration?: { audio_url?: string | null; audio_path?: string | null } | null }>;
 };
@@ -55,10 +57,13 @@ function labelFor(p: Progress, plan: Plan) {
   }
 }
 
-function runBlender(planPath: string, outPath: string, onProgress: (p: Progress) => void) {
+type Event = { kind: "progress"; p: Progress } | { kind: "stage"; label: string } | { kind: "preview"; shot: number; path: string };
+
+function runBlender(planPath: string, outPath: string, previewDir: string, onEvent: (e: Event) => void) {
   return new Promise<void>((resolvePromise, reject) => {
     const script = join(root, "blender", "render_shot_plan.py");
-    const child = spawn(BLENDER, ["-b", "--factory-startup", "-P", script, "--", planPath, outPath, "--quality", QUALITY], { cwd: root });
+    const previewArgs = readFileSync(script, "utf8").includes("--preview-dir") ? ["--preview-dir", previewDir] : [];
+    const child = spawn(BLENDER, ["-b", "--factory-startup", "-P", script, "--", planPath, outPath, "--quality", QUALITY, ...previewArgs], { cwd: root });
     let tail = "";
     let buffer = "";
     const onData = (chunk: Buffer) => {
@@ -68,10 +73,14 @@ function runBlender(planPath: string, outPath: string, onProgress: (p: Progress)
       const lines = buffer.split("\n");
       buffer = lines.pop() ?? "";
       for (const line of lines) {
+        const stage = line.match(/^STAGE (.+)$/);
+        if (stage) onEvent({ kind: "stage", label: stage[1].trim() });
+        const preview = line.match(/^PREVIEW (\d+) (.+)$/);
+        if (preview) onEvent({ kind: "preview", shot: Number(preview[1]), path: preview[2].trim() });
         const match = line.match(/PROGRESS (\{.*\})/);
         if (!match) continue;
         try {
-          onProgress(JSON.parse(match[1]) as Progress);
+          onEvent({ kind: "progress", p: JSON.parse(match[1]) as Progress });
         } catch {}
       }
     };
@@ -103,18 +112,36 @@ async function render(movieId: string, plan: Plan) {
       log(`narration ${i + 1} download failed, rendering without it:`, error instanceof Error ? error.message : error);
     }
   }
+  const musicDir = process.env.MUSIC_DIR ?? join(homedir(), ".capy", "work", "music");
+  const music = [movieId, plan.genre, "default"].map((g) => join(musicDir, `${g}.mp3`)).find((p) => existsSync(p));
+  if (music) plan.music_path = music;
   await writeFile(planPath, JSON.stringify(plan, null, 2));
 
   let lastSent = 0;
   let lastLabel = "";
+  let lastPct = 2;
   const started = Date.now();
-  await runBlender(planPath, outPath, (p) => {
-    const label = labelFor(p, plan);
+  const previewDir = join(dir, "previews");
+  await mkdir(previewDir, { recursive: true });
+  const send = (label: string, pct: number) => {
     const now = Date.now();
     if (label === lastLabel && now - lastSent < 700) return;
     lastSent = now;
     lastLabel = label;
-    void client.mutation(api.worker.progress, { secret: SECRET, movieId, label, pct: Math.min(95, p.pct ?? 0) }).catch(() => {});
+    lastPct = pct;
+    void client.mutation(api.worker.progress, { secret: SECRET, movieId, label, pct }).catch(() => {});
+  };
+  const uploadPreview = async (shot: number, path: string) => {
+    const uploadUrl: string = await client.mutation(api.worker.generateUploadUrl, { secret: SECRET });
+    const res = await fetch(uploadUrl, { method: "POST", headers: { "Content-Type": path.endsWith(".png") ? "image/png" : "image/jpeg" }, body: await readFile(path) });
+    if (!res.ok) throw new Error(`preview upload HTTP ${res.status}`);
+    const { storageId } = (await res.json()) as { storageId: string };
+    await client.mutation(api.worker.addPreview, { secret: SECRET, movieId, shot, storageId });
+  };
+  await runBlender(planPath, outPath, previewDir, (e) => {
+    if (e.kind === "progress") send(labelFor(e.p, plan), Math.min(95, e.p.pct ?? 0));
+    else if (e.kind === "stage") send(e.label, lastPct);
+    else void uploadPreview(e.shot, e.path).catch((error) => log("preview upload failed:", error instanceof Error ? error.message : error));
   });
   log(`rendered ${movieId} in ${((Date.now() - started) / 1000).toFixed(1)}s`);
 
