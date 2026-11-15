@@ -78,8 +78,8 @@ export default function Reveal() {
         </Text>
         <Text style={[type.body, styles.vibe]}>“{member.look.vibe}”</Text>
       </View>
-      <BigButton testID="cast-someone-else" icon="🎬" label="Cast someone else" onPress={() => router.replace('/cast/consent')} />
-      <BigButton variant="ghost" label="Back to the stage" onPress={() => router.replace('/')} />
+      <BigButton testID="pick-genre" icon="🎞️" label="Pick a genre" onPress={() => router.push({ pathname: '/movie/new', params: { castMemberId: id } })} />
+      <BigButton variant="ghost" label="Cast someone else" onPress={() => router.replace('/cast/consent')} />
     </Screen>
   );
 }

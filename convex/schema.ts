@@ -1,6 +1,7 @@
 import { defineSchema, defineTable } from "convex/server";
 import { v } from "convex/values";
 import { lookValidator } from "./looks";
+import { storyValidator } from "./story";
 
 export default defineSchema({
   consents: defineTable({
@@ -22,4 +23,28 @@ export default defineSchema({
     error: v.optional(v.string()),
     photoDeletedAt: v.optional(v.number()),
   }),
+  movies: defineTable({
+    genre: v.string(),
+    cast: v.array(v.object({ castMemberId: v.id("castMembers"), role: v.string() })),
+    story: storyValidator,
+    status: v.union(
+      v.literal("draft"),
+      v.literal("queued"),
+      v.literal("rendering"),
+      v.literal("done"),
+      v.literal("failed"),
+    ),
+    plan: v.optional(v.any()),
+    progress: v.optional(v.object({ label: v.string(), pct: v.number() })),
+    attempts: v.number(),
+    workerId: v.optional(v.string()),
+    claimedAt: v.optional(v.number()),
+    videoStorageId: v.optional(v.id("_storage")),
+    error: v.optional(v.string()),
+    okToPost: v.boolean(),
+    postedToFeed: v.boolean(),
+    recastOf: v.optional(v.id("movies")),
+    lockedAt: v.optional(v.number()),
+    finishedAt: v.optional(v.number()),
+  }).index("by_status", ["status"]),
 });
