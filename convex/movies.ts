@@ -114,3 +114,57 @@ export const retry = mutation({
     await ctx.scheduler.runAfter(10 * 60 * 1000, internal.worker.expireStuck, { movieId, lockedAt });
   },
 });
+
+export const postToFeed = mutation({
+  args: { movieId: v.id("movies") },
+  handler: async (ctx, { movieId }) => {
+    const movie = await ctx.db.get(movieId);
+    if (!movie || movie.status !== "done") throw new Error("The movie isn't finished yet");
+    if (!movie.okToPost) throw new Error("This star didn't OK posting to the feed");
+    await ctx.db.patch(movieId, { postedToFeed: true });
+  },
+});
+
+export const feed = query({
+  args: {},
+  handler: async (ctx) => {
+    const done = await ctx.db
+      .query("movies")
+      .withIndex("by_status", (q) => q.eq("status", "done"))
+      .order("desc")
+      .take(50);
+    return await Promise.all(
+      done
+        .filter((m) => m.postedToFeed)
+        .map(async (m) => ({
+          _id: m._id,
+          genre: m.genre,
+          title: m.story.title,
+          logline: m.story.logline,
+          finishedAt: m.finishedAt,
+          cast: await castWithLooks(ctx, m),
+        })),
+    );
+  },
+});
+
+export const recast = mutation({
+  args: { movieId: v.id("movies"), castMemberId: v.id("castMembers") },
+  handler: async (ctx, { movieId, castMemberId }) => {
+    const original = await ctx.db.get(movieId);
+    if (!original) throw new Error("Movie not found");
+    const member = await ctx.db.get(castMemberId);
+    if (!member || member.status !== "ready") throw new Error("This cast member isn't ready yet");
+    const role = original.cast[0]?.role ?? library.genres[original.genre as keyof typeof library.genres]?.roles[0] ?? "Star";
+    return await ctx.db.insert("movies", {
+      genre: original.genre,
+      cast: [{ castMemberId, role }],
+      story: original.story,
+      status: "draft",
+      attempts: 0,
+      okToPost: await okToPostFor(ctx, [castMemberId]),
+      postedToFeed: false,
+      recastOf: original._id,
+    });
+  },
+});

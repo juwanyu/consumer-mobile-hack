@@ -1,5 +1,5 @@
 import { useMutation } from 'convex/react';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, Switch, Text, TextInput, View } from 'react-native';
 
@@ -9,6 +9,7 @@ import { colors, radius, type } from '@/theme';
 
 export default function Consent() {
   const router = useRouter();
+  const { recast } = useLocalSearchParams<{ recast?: string }>();
   const giveConsent = useMutation(api.casting.giveConsent);
   const [name, setName] = useState('');
   const [okToPost, setOkToPost] = useState(false);
@@ -20,7 +21,7 @@ export default function Consent() {
     setError(null);
     try {
       const castMemberId = await giveConsent({ name, okToPost });
-      router.replace({ pathname: '/cast/[id]/photo', params: { id: castMemberId } });
+      router.replace({ pathname: '/cast/[id]/photo', params: { id: castMemberId, ...(recast ? { recast } : {}) } });
     } catch {
       setError("Couldn't save that. Check the connection and try again.");
       setSaving(false);

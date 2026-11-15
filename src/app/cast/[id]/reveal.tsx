@@ -1,4 +1,4 @@
-import { useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useEffect, useRef, useState } from 'react';
@@ -13,9 +13,11 @@ import { colors, type } from '@/theme';
 const LINES = ['Reading the vibe…', 'Mixing skin tones…', 'Sculpting the hair…', 'Picking the outfit…', 'Snapping on the head…'];
 
 export default function Reveal() {
-  const { id } = useLocalSearchParams<{ id: Id<'castMembers'> }>();
+  const { id, recast } = useLocalSearchParams<{ id: Id<'castMembers'>; recast?: Id<'movies'> }>();
   const router = useRouter();
   const member = useQuery(api.casting.get, { castMemberId: id });
+  const original = useQuery(api.movies.get, recast ? { movieId: recast } : 'skip');
+  const recastMovie = useMutation(api.movies.recast);
   const [line, setLine] = useState(0);
   const pop = useRef(new Animated.Value(0)).current;
 
@@ -58,7 +60,7 @@ export default function Reveal() {
         <Text style={{ fontSize: 64 }}>🎭</Text>
         <Text style={[type.title, { textAlign: 'center' }]}>Casting hiccup</Text>
         <Text style={[type.body, { textAlign: 'center', color: colors.muted }]}>{member.error ?? 'Something went wrong.'}</Text>
-        <BigButton label="Try another photo" onPress={() => router.replace({ pathname: '/cast/[id]/photo', params: { id } })} />
+        <BigButton label="Try another photo" onPress={() => router.replace({ pathname: '/cast/[id]/photo', params: { id, ...(recast ? { recast } : {}) } })} />
       </Screen>
     );
   }
@@ -78,7 +80,19 @@ export default function Reveal() {
         </Text>
         <Text style={[type.body, styles.vibe]}>“{member.look.vibe}”</Text>
       </View>
-      <BigButton testID="pick-genre" icon="🎞️" label="Pick a genre" onPress={() => router.push({ pathname: '/movie/new', params: { castMemberId: id } })} />
+      {recast && original ? (
+        <BigButton
+          testID="take-the-lead"
+          icon="⭐"
+          label={`Star in ${original.story.title}`}
+          onPress={async () => {
+            const movieId = await recastMovie({ movieId: recast, castMemberId: id });
+            router.replace({ pathname: '/movie/[id]/story', params: { id: movieId } });
+          }}
+        />
+      ) : (
+        <BigButton testID="pick-genre" icon="🎞️" label="Pick a genre" onPress={() => router.push({ pathname: '/movie/new', params: { castMemberId: id } })} />
+      )}
       <BigButton variant="ghost" label="Cast someone else" onPress={() => router.replace('/cast/consent')} />
     </Screen>
   );
