@@ -11,6 +11,9 @@
 import type * as casting from "../casting.js";
 import type * as lookAi from "../lookAi.js";
 import type * as looks from "../looks.js";
+import type * as movies from "../movies.js";
+import type * as story from "../story.js";
+import type * as worker from "../worker.js";
 
 import type {
   ApiFromModules,
@@ -22,6 +25,9 @@ declare const fullApi: ApiFromModules<{
   casting: typeof casting;
   lookAi: typeof lookAi;
   looks: typeof looks;
+  movies: typeof movies;
+  story: typeof story;
+  worker: typeof worker;
 }>;
 
 /**

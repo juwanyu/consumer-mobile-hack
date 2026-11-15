@@ -45,7 +45,8 @@
     "ios": "expo start --ios",
     "web": "expo start --web",
     "lint": "expo lint",
-    "dev": "convex dev"
+    "dev": "convex dev",
+    "worker": "node worker/render-worker.mts"
   },
   "private": true
 }
