@@ -86,6 +86,21 @@ export const linkCharacter = mutation({
   },
 });
 
+export const switchable = query({
+  args: { handles: v.array(v.string()) },
+  handler: async (ctx, { handles }) => {
+    const out = [];
+    for (const handle of handles) {
+      const u = await ctx.db
+        .query("users")
+        .withIndex("by_handle", (q) => q.eq("handle", handle))
+        .first();
+      if (u) out.push({ _id: u._id, handle: u.handle, name: u.name, look: await lookFor(ctx, u) });
+    }
+    return out;
+  },
+});
+
 export const people = query({
   args: { userId: v.optional(v.id("users")) },
   handler: async (ctx, { userId }) => {

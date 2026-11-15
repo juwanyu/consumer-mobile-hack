@@ -32,7 +32,7 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
   const [switching, setSwitching] = useState(false);
   const switchAccount = useSwitchAccount();
   const newAccount = useNewAccount();
-  const people = useQuery(api.social.people, switching ? { userId: me ?? undefined } : 'skip');
+  const people = useQuery(api.social.switchable, switching ? { handles: SWITCH_HANDLES } : 'skip');
 
   if (!profile) {
     return <SafeAreaView style={styles.screen} />;
@@ -153,7 +153,7 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
         <View style={styles.sheet}>
           <Text style={[type.heading, { textAlign: 'center' }]}>Switch account</Text>
           <ScrollView contentContainerStyle={{ gap: 8, paddingVertical: 12 }}>
-            {(people ?? []).map((p) => (
+            {(people ?? []).filter((p) => p._id !== me).map((p) => (
               <Pressable
                 key={p._id}
                 onPress={async () => {
@@ -232,6 +232,8 @@ function Stat({ n, label }: { n: number; label: string }) {
     </View>
   );
 }
+
+const SWITCH_HANDLES = ['justinyu', 'justinsun', 'landseer', 'lam'];
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
