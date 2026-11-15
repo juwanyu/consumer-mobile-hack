@@ -25,6 +25,11 @@ export default function HomeScreen() {
     <ThemedView style={styles.container}>
       <SafeAreaView style={styles.safeArea}>
         <ThemedText type="title">Items</ThemedText>
+        {items !== undefined && (
+          <ThemedText type="small" testID="item-count">
+            {items.length === 1 ? '1 item' : `${items.length} items`}
+          </ThemedText>
+        )}
 
         <ThemedView type="backgroundElement" style={styles.form}>
           <TextInput
