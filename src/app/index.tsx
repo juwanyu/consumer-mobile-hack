@@ -73,14 +73,14 @@ export default function Home() {
       ) : (
         <View style={styles.hero}>
           <BlockyCharacter look={DEMO_LOOK} size={200} />
-          <Text style={[type.title, styles.center]}>Turn a judge into a movie star.</Text>
+          <Text style={[type.title, styles.center]}>Turn yourself into a movie star.</Text>
           <Text style={[type.small, styles.center]}>
             {empty ? 'No premieres yet. The first one is yours.' : 'Snap a photo, get a blocky twin, roll camera.'}
           </Text>
         </View>
       )}
 
-      <BigButton testID="cast-a-judge" icon="🎬" label="Cast a judge" onPress={() => router.push('/cast/consent')} />
+      <BigButton testID="cast-yourself" icon="🎬" label="Cast yourself" onPress={() => router.push('/cast/consent')} />
     </Screen>
   );
 }

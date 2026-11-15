@@ -65,7 +65,7 @@ export default function Photo() {
           <CameraView ref={camera} style={StyleSheet.absoluteFill} facing="front" onCameraReady={() => setReady(true)} />
         ) : (
           <View style={styles.centered}>
-            <Text style={[type.body, { textAlign: 'center' }]}>Camera access lets you snap the judge right here.</Text>
+            <Text style={[type.body, { textAlign: 'center' }]}>Camera access lets you snap your photo right here.</Text>
             {permission?.canAskAgain !== false ? (
               <BigButton variant="secondary" label="Allow camera" onPress={requestPermission} />
             ) : (
