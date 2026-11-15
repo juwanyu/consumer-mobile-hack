@@ -131,6 +131,7 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
     </View>
   );
 
+  const topLikes = [...(profile?.reels ?? [])].map((r) => r.likes).sort((a, b) => b - a)[1] ?? 0;
   return (
     <SafeAreaView edges={['top']} style={styles.screen}>
       <Modal visible={switching} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSwitching(false)}>
@@ -185,7 +186,12 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
               <Text style={styles.tileTitle} numberOfLines={2}>
                 {item.title}
               </Text>
-              <Text style={styles.tileMeta}>{item.status === 'done' ? `▶ ${compact(item.likes)} ♥` : item.status.toUpperCase()}</Text>
+              {item.status === 'done' && item.likes >= 300_000 && item.likes >= topLikes ? (
+                <View style={styles.badge}>
+                  <Text style={styles.badgeText}>{item.likes >= 1_000_000 ? '🔥 Viral' : '🔥 Trending'}</Text>
+                </View>
+              ) : null}
+              <Text style={styles.tileMeta}>{item.status === 'done' ? `▶ ${compact(item.views)}  ♡ ${compact(item.likes)}` : item.status.toUpperCase()}</Text>
             </Pressable>
           );
         }}
@@ -226,5 +232,7 @@ const styles = StyleSheet.create({
   tile: { flex: 1, maxWidth: '33%', aspectRatio: 0.62, borderRadius: 6, alignItems: 'center', justifyContent: 'flex-end', padding: 6, gap: 4, overflow: 'hidden' },
   tileShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 60, backgroundColor: 'rgba(0,0,0,0.45)' },
   tileTitle: { color: colors.text, fontSize: 12, fontWeight: '800', textAlign: 'center' },
+  badge: { position: 'absolute', top: 6, left: 6, backgroundColor: colors.pink, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
+  badgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
   tileMeta: { color: colors.text, fontSize: 11, fontWeight: '700', opacity: 0.85 },
 });

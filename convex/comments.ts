@@ -23,7 +23,7 @@ export const list = query({
       return {
         _id: c._id,
         body: c.body,
-        at: c._creationTime,
+        at: c.at ?? c._creationTime,
         likes: c.likes ?? 0,
         liked,
         pinned: !!c.pinned,
@@ -36,11 +36,11 @@ export const list = query({
     const ordered =
       sort === "top"
         ? top.sort((a, b) => (b.likes ?? 0) - (a.likes ?? 0))
-        : top.sort((a, b) => b._creationTime - a._creationTime);
+        : top.sort((a, b) => (b.at ?? b._creationTime) - (a.at ?? a._creationTime));
     const pinnedFirst = [...ordered.filter((c) => c.pinned), ...ordered.filter((c) => !c.pinned)];
     const items = [];
     for (const c of pinnedFirst) {
-      const replies = rows.filter((r) => r.parentId === c._id).sort((a, b) => a._creationTime - b._creationTime);
+      const replies = rows.filter((r) => r.parentId === c._id).sort((a, b) => (a.at ?? a._creationTime) - (b.at ?? b._creationTime));
       items.push({ ...(await shape(c)), replies: await Promise.all(replies.map(shape)) });
     }
     return { total: Math.max(rows.length, movie?.commentCount ?? 0), isOwner: !!userId && movie?.ownerId === userId, items };

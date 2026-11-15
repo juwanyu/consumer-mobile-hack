@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import castlib  # noqa: E402
 from castlib import MeshBuilder  # noqa: E402
 
-TOWN_VERSION = 4
+TOWN_VERSION = 7
 
 CHAR_MARKS = {
     "center": (0.0, 0.0, 0.0),
@@ -654,7 +654,54 @@ def loc_castle_wall(mb, coll):
         mb.ball((hx, hy, -9), hw / 2, "#3E4A6B", subdiv=2, scale=(1, 0.5, hh / (hw / 2)))
 
 
+def pine(mb, x, y, z, h, rnd):
+    green = rnd.choice(["#2F5D3A", "#3A6B40", "#27503A", "#356245"])
+    mb.box((x, y, z + h * 0.12), (0.35, 0.35, h * 0.25), "#5B3A1E")
+    for k, (r, f) in enumerate(((0.36, 0.42), (0.28, 0.36), (0.19, 0.3))):
+        mb.cyl((x, y, z + h * (0.2 + 0.24 * k) + h * f / 2), h * r, h * f, castlib.shade(green, 1.0 + 0.08 * k),
+               segs=7, radius2=0.0)
+
+
+def loc_mountain_trail(mb, coll):
+    """Downhill singletrack along a pine mountainside: riders travel toward -Y; uphill slope at +X, valley at -X."""
+    rnd = random.Random(77)
+    slope_up, slope_dn = math.atan(0.32), math.atan(0.45)
+    y0, y1 = -140.0, 40.0
+    L, yc = y1 - y0, (y0 + y1) / 2
+    mb.box((0, yc, -0.1), (8.0, L, 0.2), "#6E8B3D")
+    mb.box((0, yc, 0.0), (2.4, L, 0.04), "#9C6B43")
+    mb.box((0, yc, 0.025), (0.9, L, 0.02), "#B07E52")
+    mb.box((4.0 + 30 * math.cos(slope_up), yc, 30 * math.sin(slope_up) - 0.1), (60, L, 0.2), "#5F7F36", rot=(0, -slope_up, 0))
+    mb.box((-4.0 - 30 * math.cos(slope_dn), yc, -30 * math.sin(slope_dn) - 0.1), (60, L, 0.2), "#58773A", rot=(0, slope_dn, 0))
+    for i in range(70):
+        y = rnd.uniform(y0, y1)
+        x = rnd.choice((-1, 1)) * rnd.uniform(1.35, 3.6)
+        mb.box((x, y, 0.03), (rnd.uniform(0.2, 0.6), rnd.uniform(0.2, 0.8), 0.06), rnd.choice(["#7A5230", "#8B6A45", "#6B7A3A"]))
+    for i in range(40):
+        y = rnd.uniform(y0, y1)
+        x = rnd.choice((-1, 1)) * rnd.uniform(1.6, 4.0)
+        mb.ball((x, y, 0.1), rnd.uniform(0.18, 0.45), "#8A8794", subdiv=1, scale=(1.2, 1.0, 0.6))
+    for i in range(260):
+        side = 1 if i % 2 else -1
+        x = rnd.uniform(9.0, 40.0) if side > 0 else -rnd.uniform(4.5, 38.0)
+        y = rnd.uniform(y0, y1 + 20)
+        z = (x - 4.0) * 0.32 if side > 0 else (x + 4.0) * 0.45
+        pine(mb, x, y, z, rnd.uniform(6.0, 11.0), rnd)
+    for i in range(10):
+        pine(mb, -rnd.uniform(2.8, 4.4), rnd.uniform(y0 + 20, y1), 0.0, rnd.uniform(5.0, 8.0), rnd)
+    mb.box((-160, -40, -38), (220, 400, 0.4), "#6C8F4A")
+    mb.box((-120, -30, -37.7), (30, 120, 0.2), "#5DA9E9")
+    for (hx, hy, hw, hh, col) in [(-230, -60, 160, 70, "#7C8DB5"), (-200, 90, 140, 55, "#8C9CC2"), (-210, -200, 150, 60, "#7486AE"),
+                                  (-150, 170, 90, 40, "#93A3C8")]:
+        mb.ball((hx, hy, -38), hw / 2, col, subdiv=2, scale=(0.6, 1, hh / (hw / 2)))
+        mb.ball((hx + hw * 0.08, hy, -38 + hh * 0.86), hw * 0.13, "#F4F1EA", subdiv=1, scale=(0.6, 1, 0.5))
+    for k in range(-6, 7):
+        mb.box((-1.35, k * 2.2 + 6.0, 0.4), (0.08, 0.08, 0.8), "#6B4A2B")
+    mb.box((-1.35, 6.0, 0.7), (0.06, 26.4, 0.06), "#6B4A2B")
+
+
 MOODS = {
+    "mountain_trail": dict(sky="#F5B971", sun_color="#FFD49A", sun_energy=4.2, sun_elev=20, sun_az=-55, ambient=0.95),
     "main_street": dict(sky="#8ECDF7", sun_color="#FFF4E0", sun_energy=4.0, sun_elev=50, sun_az=-35, ambient=1.0),
     "bank": dict(sky="#9AD3F7", sun_color="#FFF4E0", sun_energy=4.0, sun_elev=55, sun_az=30, ambient=1.0),
     "park": dict(sky="#9BE0FF", sun_color="#FFF1D0", sun_energy=4.2, sun_elev=55, sun_az=-30, ambient=1.0),
@@ -668,7 +715,7 @@ MOODS = {
     "summoning_room": dict(sky="#07070F", sun_color="#8FB8FF", sun_energy=1.3, sun_elev=65, sun_az=15, ambient=0.55),
     "yc_hq": dict(sky="#FFE8D2", sun_color="#FFE6C8", sun_energy=3.4, sun_elev=55, sun_az=20, ambient=1.0),
     "capy_castle": dict(sky="#F28B3B", sun_color="#FFB070", sun_energy=3.6, sun_elev=16, sun_az=-35, ambient=0.75),
-    "castle_wall": dict(sky="#F07E36", sun_color="#FFB070", sun_energy=3.6, sun_elev=16, sun_az=35, ambient=0.75),
+    "castle_wall": dict(sky="#7484D2", sun_color="#FFE2BC", sun_energy=3.8, sun_elev=22, sun_az=35, ambient=0.85),
     "saloon": dict(sky="#FFB86B", sun_color="#FFD29D", sun_energy=4.0, sun_elev=30, sun_az=-40, ambient=0.9),
 }
 
@@ -678,6 +725,7 @@ BUILDERS = {
     "cafe": loc_cafe, "kaiju_city": loc_kaiju_city, "saloon": loc_saloon,
     "summoning_room": loc_summoning_room,
     "yc_hq": loc_yc_hq, "capy_castle": loc_capy_castle, "castle_wall": loc_castle_wall,
+    "mountain_trail": loc_mountain_trail,
 }
 
 

@@ -20,8 +20,8 @@ sys.path.insert(0, HERE)
 import castlib  # noqa: E402
 from castlib import progress  # noqa: E402
 from character import build_character  # noqa: E402
-from animations import (ACTION_PROPS, RAISE_HOLD, RAISE_IMPACT, SLASH_IMPACT, SLASH_PERIOD, SLASH_RAISED,  # noqa: E402
-                        apply_action)
+from animations import (ACTION_PROPS, BIKE_ACTIONS, BIKE_LIFT, JUMP_LAND, JUMP_TAKEOFF, KICKER_H, KICKER_LEN, RAISE_HOLD,  # noqa: E402
+                        RAISE_IMPACT, SLASH_IMPACT, SLASH_PERIOD, SLASH_RAISED, apply_action, jump_profile)
 import music  # noqa: E402
 
 SET_SPACING = 400.0
@@ -29,6 +29,19 @@ MARK_YAW = {"center": 0.0, "left": -0.25, "right": 0.25, "back": 0.0}
 
 
 # ---------------------------------------------------------------- plan validation
+
+EMOJI = re.compile("[\U0001F000-\U0001FFFF\u2600-\u27BF\uFE0F\u200D]")
+FOUNDER_ROLE = re.compile(r"^(.+?)\s+(co-?founder|founder|ceo|cto)$", re.I)
+
+
+def credit_name(member):
+    """"Landseer, co-founder of Revyl" for a role like "Revyl co-founder", else "Name as Role"."""
+    m = FOUNDER_ROLE.match(member["role"])
+    if m:
+        title = m.group(2).lower().replace("cofounder", "co-founder")
+        return f"{member['name']}, {title.upper() if title in ('ceo', 'cto') else title} of {m.group(1)}"
+    return f"{member['name']} as {member['role']}"
+
 
 def _str(v, default="", limit=140):
     if isinstance(v, (int, float)) and not isinstance(v, bool):
@@ -89,7 +102,9 @@ def sanitize_plan(plan, quality_override=None):
             "role": _str(member.get("role"), roles[i % len(roles)], 40),
             "look": member.get("look") if isinstance(member.get("look"), dict) else {},
             "npc": is_npc,
-            "outfit": member.get("outfit") if member.get("outfit") in lib.get("outfits", {}) else None,
+            "outfit": member.get("outfit") if member.get("outfit") in lib.get("outfits", {})
+            else _str(member.get("role"), "", 40).lower() if _str(member.get("role"), "", 40).lower() in lib.get("outfits", {})
+            else None,
         })
     if not cast:
         cast = [{"id": "c1", "name": "The Star", "role": roles[0], "look": {}, "npc": False}]
@@ -160,7 +175,7 @@ def sanitize_plan(plan, quality_override=None):
             print(f"[cast] narration audio not usable, ignoring: {audio}", flush=True)
             audio = None
         shots.append({"location": loc, "camera": {"mark": mark, "move": move}, "characters": chars, "dialogue": dialogue,
-                      "duration_s": round(duration, 3), "fx": fx, "hud": hud, "caption": _str(shot.get("caption"), "", 80),
+                      "duration_s": round(duration, 3), "fx": fx, "hud": hud, "caption": _str(EMOJI.sub("", shot.get("caption") or "") if isinstance(shot.get("caption"), str) else None, "", 80),
                       "narration": {"text": _str(narr.get("text"), "", 300), "audio_path": audio}})
     music_path = plan.get("music_path")
     music_path = os.path.abspath(os.path.expanduser(music_path)) if isinstance(music_path, str) and music_path.strip() else None
@@ -232,8 +247,8 @@ def configure_render(scene, quality, style="cinematic"):
     r.film_transparent = False
     ee = scene.eevee
     final = quality == "final"
-    ee.taa_render_samples = 12 if final else (2 if style == "punchy" else 6)
-    ee.use_shadows = final or style != "punchy"
+    ee.taa_render_samples = 12 if final else (3 if style == "punchy" else 6)
+    ee.use_shadows = True
     ee.shadow_ray_count = 2 if final else 1
     ee.shadow_step_count = 2 if final else 1
     ee.shadow_resolution_scale = 1.0 if final else 0.75
@@ -593,6 +608,123 @@ def fx_excalibur(scene, rig, name, f0, n, fps, action="slash"):
     return impact
 
 
+def _loc_at(obj, f):
+    curves = {fc.array_index: fc for fc in iter_fcurves(obj) if fc.data_path == "location"}
+    return Vector([curves[k].evaluate(f) if k in curves else obj.location[k] for k in range(3)])
+
+
+def add_shake(cam, f, frames, amp, seed=0):
+    """Handheld jolt on an impact: decaying jitter added on top of the camera's existing move."""
+    rnd = random.Random(seed)
+    base = [(f + k, _loc_at(cam, f + k)) for k in range(frames + 1)]
+    for k, (fr, loc) in enumerate(base):
+        decay = 0.0 if k == frames else (1 - k / frames) ** 1.5
+        cam.location = loc + Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))) * amp * decay
+        cam.keyframe_insert("location", frame=fr)
+
+
+def whip_in(cam, f0, side):
+    """Whip-pan into the shot: the aim starts swung off to one side and eases onto the subject in ~6 frames."""
+    tgt = cam.constraints[0].target
+    t0, t6, eye = _loc_at(tgt, f0), _loc_at(tgt, f0 + 6), _loc_at(cam, f0)
+    fwd = t0 - eye
+    right = fwd.cross(Vector((0, 0, 1)))
+    if right.length < 1e-4:
+        return
+    tgt.location = t0 + right.normalized() * fwd.length * 0.45 * side
+    tgt.keyframe_insert("location", frame=f0)
+    tgt.location = t6
+    tgt.keyframe_insert("location", frame=f0 + 6)
+
+
+def hero_cam_excalibur(cam, focus, wide_eye, wide_target, f0, n, impact, fps):
+    """Excalibur on the wall: start close and centred on the wielder for the wind-up, whip out to the wide side angle
+    at the impact so the beam and army_fall read, shake on the hit."""
+    tgt = cam.constraints[0].target
+    for o in (cam, tgt):
+        o.animation_data_clear()
+    close_eye, close_target = focus + Vector((-1.9, -2.0, 0.9)), focus + Vector((0.0, 0.0, 1.45))
+    whip = max(f0 + 2, impact - int(0.3 * fps))
+    keys = [(f0, close_eye, close_target), (whip, close_eye + (close_eye - close_target) * 0.08, close_target),
+            (impact, wide_eye, wide_target)]
+    rnd = random.Random(f0)
+    for k in range(1, 9):
+        j = Vector((rnd.uniform(-1, 1), rnd.uniform(-1, 1), rnd.uniform(-1, 1))) * 0.18 * (1 - k / 9)
+        keys.append((impact + k, wide_eye + j, wide_target + j * 0.4))
+    keys.append((f0 + n - 1, wide_eye + (wide_target - wide_eye) * 0.05, wide_target))
+    for f, e, t in keys:
+        if f > f0 + n - 1:
+            continue
+        cam.location, tgt.location = e, t
+        cam.keyframe_insert("location", frame=f)
+        tgt.keyframe_insert("location", frame=f)
+
+
+def prop_kicker(scene, name, start, fwd, d_lip):
+    """Wooden kicker whose lip sits d_lip metres along fwd from start, matching animations.pose_bike_jump."""
+    mb = castlib.MeshBuilder()
+    slope = math.atan2(KICKER_H, KICKER_LEN)
+    hyp = math.hypot(KICKER_H, KICKER_LEN)
+    mid = -(d_lip - KICKER_LEN / 2)
+    mb.box((0, mid, KICKER_H / 2 - 0.09), (1.7, hyp, 0.16), "#A0703F", rot=(-slope, 0, 0))
+    for k in range(5):
+        y = -(d_lip - KICKER_LEN + (k + 0.5) * KICKER_LEN / 5)
+        z = KICKER_H * (k + 0.5) / 5
+        mb.box((0, y, z + 0.005), (1.72, 0.03, 0.02), "#6B4A2B", rot=(-slope, 0, 0))
+    mb.box((0, -(d_lip - 0.35), KICKER_H / 2 - 0.05), (1.6, 0.7, KICKER_H - 0.1), "#7A5230")
+    mb.ball((0, -(d_lip - KICKER_LEN * 0.4), 0.0), 1.2, "#9C6B43", subdiv=1, scale=(1.0, 1.4, 0.35))
+    obj = mb.to_object(name + ".kicker", scene.collection)
+    castlib.add_outline(obj, 0.02)
+    obj.location = start * 1.0
+    obj.location.z = 0.0
+    obj.rotation_euler = (0, 0, math.atan2(fwd.x, -fwd.y))
+    return obj
+
+
+def fx_dust(scene, name, rig, samples, f0, n, bursts, trail=False, base=None):
+    """Dirt puffs kicked up behind the rear wheel along the rider's path, plus bigger rings at takeoff/landing."""
+    rnd = random.Random(f0 + 5)
+    origin = (rig.location.copy() if rig else base) * 1.0
+    origin.z = 0.0
+    back = Vector((0, 0.75, 0))
+    if rig:
+        back = rig.matrix_world.to_3x3().normalized() @ back
+        back.z = 0
+
+    def disp_at(f):
+        best = min(samples, key=lambda s: abs(s[0] - f))
+        return best[1]
+
+    spawns = []
+    if trail:
+        spawns += [(f, 1.0) for f in range(f0, f0 + n - 4, 3)]
+    for b in bursts:
+        spawns += [(b, 1.9)] * 9
+    for k, (f, size) in enumerate(spawns):
+        mb = castlib.MeshBuilder()
+        mb.ball((0, 0, 0), 0.22, rnd.choice(["#B08A5E", "#C29A6B", "#9C7A52"]), subdiv=1)
+        puff = mb.to_object(f"{name}.dust{k}", scene.collection)
+        p = origin + disp_at(f) + back * (1.0 if size < 1.5 else 0.0)
+        if size > 1.5:
+            a = rnd.uniform(0, 2 * math.pi)
+            drift = Vector((math.cos(a), math.sin(a), 0)) * rnd.uniform(1.0, 1.8)
+        else:
+            drift = back * rnd.uniform(0.4, 1.0) + Vector((rnd.uniform(-0.5, 0.5), 0, 0))
+        p += Vector((rnd.uniform(-0.25, 0.25), rnd.uniform(-0.2, 0.2), 0.12))
+        life = int(rnd.uniform(14, 22))
+        for fr, sc, loc in ((max(f0, f - 1), 0.0, p), (f, 0.35 * size, p),
+                            (f + life // 2, 1.3 * size, p + drift * 0.6 + Vector((0, 0, 0.35))),
+                            (f + life, 0.0, p + drift + Vector((0, 0, 0.6)))):
+            puff.scale = (sc, sc, sc * 0.8)
+            puff.location = loc
+            puff.keyframe_insert("scale", frame=fr)
+            puff.keyframe_insert("location", frame=fr)
+        if f - 1 > f0:
+            puff.scale = (0, 0, 0)
+            puff.keyframe_insert("scale", frame=f0)
+    return spawns
+
+
 _FOUNDERS = {}
 
 
@@ -708,6 +840,8 @@ def fx_embers(scene, name, center, f0, n, fps):
     return obj
 
 
+HIGH_ENERGY = {"army", "excalibur", "speed_lines", "shockwave", "flash", "slowmo", "dust", "army_fall"}
+
 TALKY = {"celebrate", "scared", "raise_sword", "charge"}
 
 
@@ -722,6 +856,33 @@ def speaker_for(shot, chars):
     if any(q in text for q in ("\u201c", "\"", "\u300c")) and chars:
         return chars[0]["cast_id"]
     return None
+
+
+# action -> [(start fraction of the shot, brows, mouth)]
+EXPRESSIONS = {
+    "slash": [(0, "angry", "grit")], "charge": [(0, "angry", "shout")], "block": [(0, "angry", "grit")],
+    "raise_sword": [(0, "angry", "grit"), (RAISE_IMPACT - 0.08, "angry", "shout")],
+    "summon": [(0, "angry", "grit")], "punch": [(0, "angry", "grit")], "thumbs_up": [(0, "neutral", "smirk")],
+    "point": [(0, "angry", "smirk")], "film": [(0, "neutral", "smirk")], "banner": [(0, "up", "shout")],
+    "celebrate": [(0, "up", "shout")], "dance": [(0, "up", "smirk")], "scared": [(0, "up", "o")],
+    "fall": [(0, "up", "o")], "jump": [(0, "up", "shout")], "run": [(0, "angry", "grit")],
+    "bike_ride": [(0, "angry", "grit")], "rock_on": [(0, "angry", "shout")],
+    "bike_jump": [(0, "angry", "grit"), (JUMP_TAKEOFF, "up", "shout"), (JUMP_LAND + 0.06, "neutral", "smirk")],
+}
+
+
+def animate_expression(rig, action, f0, n):
+    beats = EXPRESSIONS.get(action, [(0, "neutral", "neutral")])
+    for frac, brows, mouth in beats:
+        f = f0 + int(frac * n)
+        for group, kinds, want in (("brows", ("neutral", "angry", "up"), brows), ("mouth", ("neutral", "grit", "smirk", "shout", "o"), mouth)):
+            for k in kinds:
+                o = bpy.data.objects.get(rig.get(f"{group}_{k}", ""))
+                if o:
+                    o.hide_render = k != want
+                    o.keyframe_insert("hide_render", frame=f)
+    make_constant(*[bpy.data.objects[rig[key]] for key in rig.keys() if key.startswith(("brows_", "mouth_"))
+                    and rig[key] in bpy.data.objects])
 
 
 def animate_face(rig, f0, n, fps, talk_frames=0, open_whole=False, seed=0):
@@ -821,6 +982,13 @@ def build_scene(plan, progress_file=None, offset_frames=0):
             return coll.objects.get(f"{loc}.{kind}.{name}")
 
         fx = shot.get("fx") or []
+        speed = 0.3 if "slowmo" in fx else 1.0
+        if plan.get("style") == "punchy" and any(c["action"] == "bike_ride" for c in shot["characters"]):
+            for extra in ("dust", "speed_lines"):
+                if extra not in fx:
+                    fx.append(extra)
+            shot["fx"] = fx
+        track = None
         shot_rigs = []
         print(f"STAGE Building characters: shot {i + 1}/{nshots}", flush=True)
         for ch in shot["characters"]:
@@ -834,22 +1002,56 @@ def build_scene(plan, progress_file=None, offset_frames=0):
             if "excalibur" in fx and member.get("look", {}).get("accessory") == "sword":
                 props.add("sword")
             rig = build_character(member["look"], f"s{i + 1}.{member['id']}", variant=variant[member["id"]], props=props,
-                                  outfit=member.get("outfit") if loc != "yc_hq" else None)
+                                  outfit=member.get("outfit"))
             rig.location = pos
             rig.rotation_euler = (0.0, 0.0, MARK_YAW.get(ch["mark"], 0.0))
             bpy.context.view_layer.update()
-            apply_action(rig, ch["action"], f0, shot_frames, travel=0.0 if ch["action"] == "charge" else 0.35 if plan.get("style") == "punchy" else 1.0)
+            mounted = member.get("outfit") == "mtb"
+            travel = 1.0 if ch["action"] in BIKE_ACTIONS else 0.0 if ch["action"] == "charge" else \
+                0.35 if plan.get("style") == "punchy" else 1.0
+            samples = apply_action(rig, ch["action"], f0, shot_frames, travel=travel, speed=speed, mounted=mounted)
+            if mounted:
+                _key_linear(*[o for o in rig.children_recursive if o.name.endswith((".wheelF", ".wheelR"))])
+            if ch["action"] in BIKE_ACTIONS and track is None:
+                track = (rig, samples)
             rigs.append(rig)
             talking = speaker_for(shot, shot["characters"]) == ch["cast_id"]
             talk_s = shot.get("_audio_s") or len((shot.get("narration") or {}).get("text") or shot.get("caption") or "") / 14.0
-            animate_face(rig, f0, shot_frames, fps, int(talk_s * fps) if talking else 0,
-                         open_whole=ch["action"] in TALKY, seed=i * 7 + len(rigs))
+            expr_mouth = EXPRESSIONS.get(ch["action"], [(0, "", "neutral")])[0][2]
+            animate_face(rig, f0, shot_frames, fps, int(talk_s * fps) if talking and expr_mouth in ("neutral", "smirk") else 0,
+                         open_whole=False, seed=i * 7 + len(rigs))
+            animate_expression(rig, ch["action"], f0, shot_frames)
             shot_rigs.append((ch, rig, props))
         progress("rigging", 3 + 32 * (i + 1) / nshots, i + 1, nshots, progress_file)
 
         center_mark = obj("mark", "center")
         center = (center_mark.location if center_mark else Vector((0, 0, 0))) + offset
         ev = {}
+        dust_bursts = []
+        for c, r, p in shot_rigs:
+            if c["action"] == "bike_jump":
+                T = shot_frames / fps * speed
+                d_to, d_land = jump_profile(T)
+                fwd = r.matrix_world.to_3x3().normalized() @ Vector((0, -1, 0))
+                fwd.z = 0
+                prop_kicker(scene, f"shot{i + 1}", r.location.copy(), fwd.normalized(), d_to)
+                land = f0 + int(JUMP_LAND * shot_frames)
+                ev.setdefault("thud", []).append(land)
+                if "slowmo" in fx or "hero" not in ev:
+                    ev["hero"] = land
+                    ev["hero_rank"] = 2 if "slowmo" in fx else 1
+                dust_bursts += [f0 + int(0.3 * shot_frames), land]
+            if c["action"] in BIKE_ACTIONS:
+                ev["ride"] = True
+        if "dust" in fx:
+            if track:
+                fx_dust(scene, f"shot{i + 1}", track[0], track[1], f0, shot_frames, dust_bursts, trail=True)
+            else:
+                hero = shot_rigs[0][1] if shot_rigs else None
+                pos0 = hero.location.copy() if hero else center
+                fx_dust(scene, f"shot{i + 1}", hero, [(f0, Vector())], f0, shot_frames, dust_bursts or [f0 + 2], base=pos0)
+                dust_bursts = dust_bursts or [f0 + 2]
+            ev["dirt"] = dust_bursts
         if "magic_circle" in fx:
             fx_magic_circle(scene, f"shot{i + 1}", center, f0, shot_frames, fps)
         if "flash" in fx:
@@ -860,6 +1062,7 @@ def build_scene(plan, progress_file=None, offset_frames=0):
             wc = next(((c, r) for c, r, p in shot_rigs if c["action"] in ("raise_sword", "slash")), None) \
                 or next(((c, r) for c, r, p in shot_rigs if "sword" in p), (shot_rigs[0][0], shot_rigs[0][1]))
             ev["impact"] = fx_excalibur(scene, wc[1], f"shot{i + 1}", f0, shot_frames, fps, wc[0]["action"])
+            ev["hero"], ev["hero_rank"] = ev["impact"], 3
         ev["clash"] = []
         for c, r, p in shot_rigs:
             if c["action"] == "slash":
@@ -893,21 +1096,48 @@ def build_scene(plan, progress_file=None, offset_frames=0):
             move = shot["camera"]["move"]
             if loc == "castle_wall" and "excalibur" in fx:
                 focus = focus if focus is not None else positions[0]
-                eye = focus + Vector((-9.0, -1.5, 1.8))
-                target = focus + Vector((0.0, -2.6, -0.6))
+                eye = focus + Vector((-9.0, -3.3, 1.9))
+                target = focus + Vector((0.0, -2.6, -0.5))
                 lens = 16
             elif loc == "castle_wall" and "army" in fx:
                 focus = focus if focus is not None else positions[0]
-                eye = focus + Vector((1.6, 3.6, 4.4))
-                target = focus + Vector((-0.6, -9.0, -5.5))
-                lens = 20
+                eye = focus + Vector((-3.6, -4.4, 3.0))
+                target = focus + Vector((0.4, -0.4, 1.2))
+                lens = 18
                 move = "push_in" if move == "orbit" else move
+            elif any(r.get("mounted") for _, r, _ in shot_rigs):
+                riding = any(c["action"] == "bike_ride" for c, _, _ in shot_rigs)
+                ang = math.radians(20 if shot["camera"]["mark"] == "closeup" else 68 if riding else 38)
+                rel = (eye - target) * (1.0 if shot["camera"]["mark"] == "closeup" else 1.5)
+                eye = target + Vector((rel.x * math.cos(ang) - rel.y * math.sin(ang),
+                                       rel.x * math.sin(ang) + rel.y * math.cos(ang), rel.z))
+            if "slowmo" in fx:
+                move = "orbit"
         else:
             move = shot["camera"]["move"]
             eye = (cam_mark.location if cam_mark else Vector((0, -12, 3))) + offset
             target = Vector(cam_mark["target"] if cam_mark and "target" in cam_mark else (0, 0, 1.2)) + offset
             lens = float(cam_mark.get("lens", 30.0)) if cam_mark else 30.0
         cam = make_camera(scene, f"shot{i + 1}.cam", eye, target, lens, move, f0, shot_frames)
+        if loc == "castle_wall" and "excalibur" in fx and positions:
+            hero_cam_excalibur(cam, focus, eye, target, f0, shot_frames, ev.get("impact", f0 + shot_frames // 2), fps)
+        elif plan.get("style") == "punchy":
+            hits = [f for f in [ev.get("impact")] + ev.get("thud", []) + ev.get("clash", [])[:2] if f]
+            for k, f in enumerate(sorted(set(hits))):
+                add_shake(cam, f, 9, 0.12 if f in ev.get("clash", []) else 0.22, seed=f)
+        if plan.get("style") == "punchy" and i > 0:
+            whip_in(cam, f0, 1 if i % 2 else -1)
+        if track:
+            follow = bpy.data.objects.new(f"shot{i + 1}.follow", None)
+            scene.collection.objects.link(follow)
+            lift = BIKE_LIFT
+            for f, disp, up in track[1]:
+                follow.location = (disp.x, disp.y, 0.55 * max(0.0, up - lift))
+                follow.keyframe_insert("location", frame=f)
+            _key_linear(follow)
+            for o in [cam, cam.constraints[0].target] + [o for o in scene.collection.objects
+                                                         if o.name.startswith(f"shot{i + 1}.sparkles")]:
+                o.parent = follow
         if plan.get("style") == "punchy" and (shot["camera"]["mark"] == "closeup" or
                                               (shot["camera"]["mark"] == "medium" and plan["quality"] == "final")):
             cam.data.dof.use_dof = True
@@ -1043,7 +1273,7 @@ def build_edit(plan, built, wav_path):
     ov.keyframe_insert("blend_alpha", frame=credits_f0)
     ov.blend_alpha = 0.62
     ov.keyframe_insert("blend_alpha", frame=credits_f0 + 5)
-    lines = "\n".join([f"Starring {c['name']} as {c['role']}" for c in plan["cast"] if not c.get("npc")]
+    lines = "\n".join([f"Starring {credit_name(c)}" for c in plan["cast"] if not c.get("npc")]
                       + [f"and {c['name']} as {c['role']}" for c in plan["cast"] if c.get("npc")])
     t = _text(se, "credits", lines, credits_f0, credits_n, 9, 0.52, 46, wrap=0.86)
     _fade(t, credits_f0, credits_n, 5, 0)
@@ -1273,20 +1503,13 @@ def build_edit_punchy(plan, built, wav_path, tmpdir):
         vig.blend_type = "ALPHA_OVER"
     except Exception as e:
         print(f"[cast] vignette skipped: {e}", flush=True)
-    for key in ("speed", "flash", "flash2", "title_dim", "hud0", "seal0", "sealfg0", "hud1", "seal1", "sealfg1",
-                "hud2", "seal2", "sealfg2", "caption", "title", "title_rule", "logline", "powered", "credits", "title_flash"):
+    for key in ("speed", "flash", "flash2", "title_dim", "caption", "title", "title_rule", "logline", "powered", "credits",
+                "title_flash"):
         ch(key)
     W, H = edit.render.resolution_x, edit.render.resolution_y
     speed_paths = None
     last = len(plan["shots"]) - 1
     title_f = None
-    prev_hud = {}
-    seal_max = {}
-    for shot in plan["shots"]:
-        for item in shot["hud"]:
-            v = _int(item["value"])
-            if "SEAL" in item["label"] and v is not None and 0 <= v <= 9:
-                seal_max[item["label"]] = max(seal_max.get(item["label"], 0), v)
 
     for i, ((f0, n), shot) in enumerate(zip(built["shots"], plan["shots"])):
         fx = shot.get("fx") or []
@@ -1302,46 +1525,6 @@ def build_edit_punchy(plan, built, wav_path, tmpdir):
             imp = built["events"][i]["impact"]
             _flash(se, f"excal{i + 1}", imp, 10, ch("flash2"), color=(1.0, 0.9, 0.55), peak=0.9)
 
-        y = 0.875
-        for j, item in enumerate(shot["hud"]):
-            label, value = item["label"], item["value"]
-            cur, prev = _int(value), _int(prev_hud.get(label))
-            size = 46
-            steps = []
-            if cur is not None and prev is not None and cur != prev:
-                cf = min(int(0.6 * fps), n - 1)
-                for k in range(cf):
-                    a = k / max(1, cf - 1)
-                    a = a * a * (3 - 2 * a)
-                    steps.append(str(int(round(prev + (cur - prev) * a))))
-            segs = []
-            for k, txt in enumerate(steps):
-                if segs and segs[-1][1] == txt:
-                    segs[-1][2] += 1
-                else:
-                    segs.append([f0 + k, txt, 1])
-            start_rest = f0 + len(steps)
-            hud_end = title_f if (i == last and title_f) else f_end
-            segs.append([start_rest, value if cur is None else str(cur), max(1, hud_end - start_rest)])
-            chan = ch(f"hud{j}")
-            for k, (sf, txt, ln) in enumerate(segs):
-                t = _plain_text(se, f"hud{i + 1}_{j}_{k}", f"{label}  {txt}", sf, ln, chan, 0.12, y, size,
-                                anchor_y="TOP", box=(0.02, 0.0, 0.08, 0.55), outline=0.05)
-                if k == len(segs) - 1 and steps:
-                    _pop(t, sf, size, 1.35, 5)
-            y -= 0.052
-            if label in seal_max and cur is not None:
-                schan = ch(f"seal{j}")
-                _plain_text(se, f"sealbg{i + 1}_{j}", "\u2756" * seal_max[label], f0, max(1, hud_end - f0), schan, 0.125, y, 52,
-                            color=(0.25, 0.05, 0.08, 0.85), anchor_y="TOP", outline=0.04)
-                if cur > 0:
-                    t = _plain_text(se, f"seal{i + 1}_{j}", "\u2756" * cur, f0, max(1, hud_end - f0), ch(f"sealfg{j}"), 0.125, y, 52,
-                                    color=SEAL_RED, anchor_y="TOP", outline=0.04)
-                    if prev is not None and cur != prev:
-                        _pop(t, f0 + min(int(0.6 * fps), n - 4), 52, 1.3, 4)
-                y -= 0.05
-            y -= 0.01
-            prev_hud[label] = value
 
         chunks, key = _caption_chunks(shot.get("caption") or "")
         if chunks:
@@ -1384,7 +1567,7 @@ def build_edit_punchy(plan, built, wav_path, tmpdir):
             lg = _plain_text(se, "title_logline", logline, title_f + 4, n_t - 4, ch("logline"), 0.5, 0.4, 50,
                              color=(1.0, 0.83, 0.38, 1), align="CENTER", font=serif_it, outline=0.06)
             _fade(lg, title_f + 4, n_t - 4, 5, 0)
-        stars = [f"{c['name']} as {c['role']}" for c in plan["cast"] if not c.get("npc")]
+        stars = [credit_name(c) for c in plan["cast"] if not c.get("npc")]
         if stars:
             cr = _plain_text(se, "credits", "Starring " + " \u00b7 ".join(stars), title_f + 8, n_t - 8, ch("credits"),
                              0.5, 0.1, 26 if len(stars) < 3 else 22, align="CENTER", outline=0.06, wrap=0.97)
@@ -1464,7 +1647,15 @@ def render_plan(plan, out_path, progress_file=None, preview_dir=None):
         evs = built["events"]
         events = {"impacts": [(e["impact"] - 1) / fps for e in evs if e.get("impact")],
                   "clashes": [(c - 1) / fps for e in evs for c in e.get("clash", ())],
-                  "army": [((f0 - 1) / fps, (f0 - 1 + n) / fps) for (f0, n), e in zip(built["shots"], evs) if e.get("army")]}
+                  "army": [((f0 - 1) / fps, (f0 - 1 + n) / fps) for (f0, n), e in zip(built["shots"], evs) if e.get("army")],
+                  "thuds": [(t - 1) / fps for e in evs for t in e.get("thud", ())],
+                  "dirt": [(t - 1) / fps for e in evs for t in e.get("dirt", ())],
+                  "wind": [((f0 - 1) / fps, (f0 - 1 + n) / fps) for (f0, n), e in zip(built["shots"], evs) if e.get("ride")],
+                  "energy": [((f0 - 1) / fps, (f0 - 1 + n) / fps, 1.0 if set(shot.get("fx") or []) & HIGH_ENERGY else 0.72)
+                             for (f0, n), shot in zip(built["shots"], plan["shots"])]}
+        heroes = sorted((e for e in evs if e.get("hero")), key=lambda e: -e.get("hero_rank", 0))
+        if heroes:
+            events["hero"] = (heroes[0]["hero"] - 1) / fps
         levels = music.write_mix(wav_path, plan["genre"], seconds, [(f0 - 1) / fps for f0, _ in built["shots"][1:]],
                                  narration=narration, events=events, punchy=plan.get("style") == "punchy",
                                  music_path=plan.get("music_path"))

@@ -13,6 +13,7 @@ GENRES = {
     "romcom": dict(bpm=108, root=50, scale=[0, 2, 4, 7, 9], wave="tri", swing=0.18, bass=[0, 4, 7, 4, 5, 9, 7, 4]),
     "kaiju": dict(bpm=92, root=36, scale=[0, 3, 6, 7, 10], wave="saw", swing=0.0, bass=[0, 0, 0, 6, 0, 0, 3, 6]),
     "fate": dict(bpm=150, root=40, scale=[0, 2, 3, 7, 8, 10], wave="saw", swing=0.0, bass=[0, 0, 8, 8, 5, 5, 7, 7]),
+    "mtb": dict(bpm=128, root=40, scale=[0, 3, 5, 7, 10], wave="saw", swing=0.0, bass=[0, 0, 7, 7, 5, 5, 3, 3]),
     "western": dict(bpm=120, root=43, scale=[0, 3, 5, 7, 10], wave="square", swing=0.25, bass=[0, 7, 0, 7, 5, 7, 3, 7]),
 }
 
@@ -215,6 +216,20 @@ def sfx_shimmer(rng):
     return sum(np.sin(2 * np.pi * f * t + rng.uniform(0, 6)) for f in (1760, 2637, 3520, 5274)) * 0.25 * trem * np.exp(-t * 1.3)
 
 
+def sfx_wind(rng, sec):
+    t = _t(sec)
+    gust = 0.55 + 0.45 * np.interp(t, np.linspace(0, sec, max(2, int(sec * 3))), rng.uniform(0, 1, max(2, int(sec * 3))))
+    env = np.minimum(1, np.minimum(t / 0.25, (sec - t) / 0.25))
+    return _filt(rng.uniform(-1, 1, len(t)), 180, 1400) * gust * env * 2.0
+
+
+def sfx_dirt(rng):
+    t = _t(0.45)
+    grit = _filt(rng.uniform(-1, 1, len(t)), 900, 6000) * (rng.uniform(0, 1, len(t)) > 0.55)
+    body = _filt(rng.uniform(-1, 1, len(t)), 120, 900)
+    return (grit * 1.4 + body) * np.exp(-t * 9)
+
+
 def sfx_thud(rng):
     t = _t(0.5)
     return np.sin(2 * np.pi * (40 + 70 * np.exp(-t * 30)) * t) * np.exp(-t * 9) + \
@@ -269,7 +284,7 @@ def write_mix(path, genre, seconds, cut_times=(), narration=(), events=None, pun
               duck_to=0.55, target_rms_db=-13.0, ceiling_db=-2.0):
     """Full mastered soundtrack: music bed (file or synth fallback) ducked under narration, SFX, voice on top.
 
-    narration: [(start_s, audio_path, max_s)]; events: dict(impacts=[s], clashes=[s], army=[(a, b)], thuds=[s]).
+    narration: [(start_s, audio_path, max_s)]; events: dict(impacts=[s], clashes=[s], army=[(a, b)], thuds=[s], dirt=[s], wind=[(a, b)]).
     Returns measured levels of the written file."""
     events = events or {}
     n = int(seconds * SR)
@@ -311,6 +326,10 @@ def write_mix(path, genre, seconds, cut_times=(), narration=(), events=None, pun
     crowd = np.zeros(n)
     for a, b in events.get("army", ()):
         _place(crowd, a, sfx_crowd(rng, b - a) * VOICE_RMS * 0.9)
+    for a, b in events.get("wind", ()):
+        _place(crowd, a, sfx_wind(rng, b - a) * VOICE_RMS * 0.8)
+    for c in events.get("dirt", ()):
+        _place(sfx, c, sfx_dirt(rng) * VOICE_RMS * 1.6 * 0.7)
     unit = VOICE_RMS * 1.6
     for c in cut_times:
         _place(sfx, max(0.0, c - 0.3), sfx_whoosh(rng) * unit * 0.6)
@@ -324,6 +343,20 @@ def write_mix(path, genre, seconds, cut_times=(), narration=(), events=None, pun
         _place(sfx, max(0.0, c - 1.4), sfx_riser(rng) * unit * 0.8)
         _place(sfx, c, sfx_boom(rng) * unit * 1.5)
         _place(sfx, c + 0.05, sfx_shimmer(rng) * unit * 0.9)
+    shape = np.ones(n)
+    for a, b, g in events.get("energy", ()):
+        shape[int(a * SR):int(b * SR)] = g
+    shape = np.convolve(shape, np.ones(int(0.25 * SR)) / int(0.25 * SR), mode="same")
+    hero = events.get("hero")
+    if hero is not None:
+        hi = int(hero * SR)
+        gap = int(0.4 * SR)
+        shape[max(0, hi - gap):hi] *= 0.06
+        swell = int(2.8 * SR)
+        shape[hi:hi + swell] *= 1.0 + 0.45 * np.linspace(1, 0, len(shape[hi:hi + swell]))
+        if hero not in events.get("impacts", ()):
+            _place(sfx, max(0.0, hero - 1.4), sfx_riser(rng) * unit * 0.8)
+            _place(sfx, hero, sfx_boom(rng) * unit * 1.3)
     gain = np.ones(n)
     ramp = int(0.08 * SR)
     for i, j in spans:
@@ -334,8 +367,8 @@ def write_mix(path, genre, seconds, cut_times=(), narration=(), events=None, pun
             seg[:r] = np.linspace(1, duck_to, r)
             seg[-r:] = np.linspace(duck_to, 1, r)
         gain[a:b] = np.minimum(gain[a:b], seg)
-    bed *= gain[:, None]
-    crowd *= gain
+    bed *= (gain * shape)[:, None]
+    crowd *= gain * shape
     if spans:
         idx = np.concatenate([np.arange(i, j) for i, j in spans])
         over = _db(_rms(voice[idx])) - _db(_rms(bed[idx].mean(axis=1)))

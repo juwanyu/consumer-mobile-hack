@@ -135,7 +135,7 @@ def _eyes(mb, look, iris):
         mb.box((x + 0.026, FACE_Y - 0.017, EYE_Z - 0.04), (0.018, 0.008, 0.018), "#FFFFFF", mat=1)
         mb.box((x, FACE_Y - 0.012, EYE_Z + 0.08), (0.155, 0.014, 0.03), INK)
         mb.box((x + sx * 0.085, FACE_Y - 0.012, EYE_Z + 0.065), (0.045, 0.014, 0.022), INK, rot=(0, -sx * 0.5, 0))
-        mb.box((x, FACE_Y - 0.008, EYE_Z + 0.155), (0.14, 0.016, 0.032), brow, rot=(0, sx * 0.1, 0))
+
 
 
 def _mouth_closed(mb):
@@ -143,6 +143,40 @@ def _mouth_closed(mb):
     mb.box((0, FACE_Y - 0.006, 1.583), (0.08, 0.012, 0.018), m)
     for sx in (-1, 1):
         mb.box((sx * 0.05, FACE_Y - 0.006, 1.594), (0.035, 0.012, 0.016), m, rot=(0, -sx * 0.55, 0))
+
+
+def _brows(mb, look, kind):
+    brow = shade(look["hair_color"], 0.8) if look["hair_style"] != "bald" else shade(look["skin_tone"], 0.55)
+    for sx in (-1, 1):
+        x = sx * EYE_X
+        if kind == "angry":
+            mb.box((x, FACE_Y - 0.008, EYE_Z + 0.135), (0.15, 0.018, 0.038), brow, rot=(0, -sx * 0.38, 0))
+        elif kind == "up":
+            mb.box((x, FACE_Y - 0.008, EYE_Z + 0.2), (0.14, 0.016, 0.032), brow, rot=(0, sx * 0.22, 0))
+        else:
+            mb.box((x, FACE_Y - 0.008, EYE_Z + 0.155), (0.14, 0.016, 0.032), brow, rot=(0, sx * 0.1, 0))
+
+
+def _mouth_kind(mb, kind):
+    m, dark = "#5A1F24", "#3E1016"
+    if kind == "grit":
+        mb.rbox((0, FACE_Y - 0.008, 1.585), (0.15, 0.012, 0.045), dark, radius=0.006, segments=1)
+        mb.box((0, FACE_Y - 0.014, 1.585), (0.13, 0.008, 0.024), "#FFFFFF")
+    elif kind == "smirk":
+        mb.box((0.01, FACE_Y - 0.006, 1.585), (0.09, 0.012, 0.018), m, rot=(0, -0.18, 0))
+        mb.box((0.065, FACE_Y - 0.006, 1.6), (0.035, 0.012, 0.016), m, rot=(0, -0.7, 0))
+    elif kind == "shout":
+        mb.rbox((0, FACE_Y - 0.012, 1.565), (0.15, 0.014, 0.13), dark, radius=0.01, segments=1)
+        mb.box((0, FACE_Y - 0.02, 1.525), (0.1, 0.008, 0.035), "#E0697A")
+        mb.box((0, FACE_Y - 0.02, 1.62), (0.12, 0.008, 0.018), "#FFFFFF")
+    elif kind == "o":
+        mb.rbox((0, FACE_Y - 0.012, 1.575), (0.07, 0.014, 0.085), dark, radius=0.01, segments=1)
+    else:
+        _mouth_closed(mb)
+
+
+BROW_KINDS = ("neutral", "angry", "up")
+MOUTH_KINDS = ("neutral", "grit", "smirk", "shout", "o")
 
 
 def _mouth_open(mb):
@@ -490,6 +524,126 @@ def _y_logo(mb):
     mb.box((0, -0.176, 1.07), (w, 0.012, 0.14), "#FFFFFF")
 
 
+GLOVE = "#1E1E24"
+BIKE_FRAME = "#A3E635"
+BIKE_DARK = "#1C1C22"
+
+
+SQUIRE_BLUE = "#2A4FB5"
+LEATHER = "#7A4A24"
+
+
+def _tabard(mb):
+    """Squire's tabard over the shirt: blue panels front and back with gold trim and a CAPY crest, leather belt."""
+    for y, sgn in ((-0.178, -1), (0.178, 1)):
+        mb.box((0, y, 1.06), (0.44, 0.012, 0.7), SQUIRE_BLUE)
+        for sx in (-1, 1):
+            mb.box((sx * 0.215, y + sgn * 0.003, 1.06), (0.03, 0.012, 0.7), GOLD)
+        mb.box((0, y + sgn * 0.003, 0.72), (0.44, 0.012, 0.03), GOLD)
+    mb.rbox((0, -0.19, 1.16), (0.2, 0.014, 0.24), GOLD, radius=0.02)
+    mb.rbox((0, -0.196, 1.17), (0.15, 0.012, 0.18), "#F2994A", radius=0.015)
+    mb.box((0.0, -0.2, 1.17), (0.03, 0.01, 0.12), "#FFFFFF")
+    mb.box((0.035, -0.2, 1.215), (0.06, 0.01, 0.025), "#FFFFFF")
+    mb.box((0.035, -0.2, 1.125), (0.06, 0.01, 0.025), "#FFFFFF")
+    mb.box((0, 0, 0.86), (0.66, 0.37, 0.07), LEATHER)
+    mb.box((0, -0.188, 0.86), (0.09, 0.012, 0.08), GOLD)
+
+
+def _satchel(mb):
+    """Leather satchel on the back-left hip with a strap across the chest."""
+    mb.box((0, -0.192, 1.1), (0.065, 0.012, 0.8), LEATHER, rot=(0, -0.7, 0))
+    mb.box((0, 0.192, 1.1), (0.065, 0.012, 0.8), LEATHER, rot=(0, 0.7, 0))
+    mb.rbox((0.17, 0.25, 0.9), (0.3, 0.13, 0.27), "#8B5A2B", radius=0.03)
+    mb.box((0.17, 0.315, 0.96), (0.3, 0.012, 0.13), "#6B3F1D")
+    mb.box((0.17, 0.322, 0.92), (0.05, 0.01, 0.04), GOLD)
+    mb.cyl((0.08, 0.27, 1.06), 0.03, 0.12, "#E8D9B0", segs=6)
+
+
+def _pennant(mb):
+    """Small CAPY pennant on a pole strapped to the back."""
+    mb.cyl((-0.16, 0.26, 1.55), 0.025, 1.7, "#6B4A2B", segs=6)
+    mb.ball((-0.16, 0.26, 2.42), 0.05, GOLD, subdiv=1)
+    mb.box((0.05, 0.26, 2.2), (0.42, 0.02, 0.3), "#F2994A")
+    mb.box((0.05, 0.26, 2.2), (0.36, 0.025, 0.06), "#FFFFFF")
+
+
+def _helmet(mb, look):
+    """Trail helmet: shell, lime stripe, vents and a visor peak; face and mustache stay visible."""
+    c = "#24232B"
+    mb.rbox((0, 0.04, TOP_Z - 0.04), (0.68, 0.66, 0.34), c, radius=0.1, segments=3)
+    mb.rbox((0, 0.06, TOP_Z - 0.2), (0.7, 0.62, 0.16), c, radius=0.05)
+    mb.box((0, 0.04, TOP_Z + 0.135), (0.12, 0.62, 0.02), BIKE_FRAME)
+    for sx in (-0.18, 0.18):
+        mb.box((sx, -0.05, TOP_Z + 0.13), (0.07, 0.3, 0.012), "#0E0E12")
+    mb.rbox((0, -0.36, TOP_Z - 0.1), (0.62, 0.24, 0.045), c, radius=0.015, rot=(0.28, 0, 0))
+    mb.box((0, -0.27, TOP_Z - 0.2), (0.6, 0.02, 0.03), BIKE_FRAME)
+
+
+def _windbreaker(mb, look):
+    shirt = look["shirt_color"]
+    mb.box((0, -0.178, 1.08), (0.022, 0.01, 0.52), "#E8E8F0")
+    mb.box((0, -0.177, 1.3), (0.6, 0.008, 0.07), mix(shirt, "#FFFFFF", 0.35))
+    mb.box((0.17, -0.179, 1.18), (0.1, 0.006, 0.05), "#FFFFFF")
+
+
+def _glove(mb, x):
+    mb.rbox((x, -0.01, HAND_Z), (0.215, 0.225, 0.185), GLOVE, radius=0.04)
+
+
+def _horns(mb, x, col):
+    """Index and pinky up (they point along the arm, away from the fist) with silver rings."""
+    for dx in (-0.065, 0.065):
+        mb.rbox((x + dx, -0.03, HAND_Z - 0.17), (0.055, 0.055, 0.2), col, radius=0.015)
+        mb.box((x + dx, -0.03, HAND_Z - 0.115), (0.064, 0.064, 0.025), SILVER)
+
+
+def _tube(mb, a, b, w, col, x=0.0):
+    dy, dz = b[0] - a[0], b[1] - a[1]
+    L = math.hypot(dy, dz)
+    mb.box((x, (a[0] + b[0]) / 2, (a[1] + b[1]) / 2), (w, L + w * 0.6, w), col, rot=(math.atan2(dz, dy), 0, 0))
+
+
+def _bike(rig, name, collection, outline):
+    """Hardtail MTB in rig space (rider seated, rig lifted by BIKE_LIFT): frame on the root bone, two spinning wheels."""
+    from animations import BIKE_LIFT, WHEEL_R
+    az = WHEEL_R - BIKE_LIFT
+    front, rear, bb = (-1.0, az), (0.72, az), (0.02, az + 0.08)
+    head_top, head_bot, seat = (-0.72, 0.9), (-0.7, 0.74), (0.12, 0.72)
+    mb = MeshBuilder()
+    _tube(mb, head_top, seat, 0.075, BIKE_FRAME)
+    _tube(mb, head_bot, bb, 0.085, BIKE_FRAME)
+    _tube(mb, bb, seat, 0.07, BIKE_FRAME)
+    _tube(mb, head_bot, head_top, 0.09, BIKE_DARK)
+    for sx in (-0.07, 0.07):
+        _tube(mb, bb, rear, 0.045, BIKE_FRAME, x=sx)
+        _tube(mb, seat, rear, 0.04, BIKE_FRAME, x=sx)
+        _tube(mb, head_bot, ((head_bot[0] + front[0]) / 2, (head_bot[1] + front[1]) / 2), 0.07, "#F2B705", x=sx * 1.2)
+        _tube(mb, ((head_bot[0] + front[0]) / 2, (head_bot[1] + front[1]) / 2), front, 0.05, BIKE_DARK, x=sx * 1.2)
+    _tube(mb, head_top, (-0.7, 0.98), 0.06, BIKE_DARK)
+    mb.box((0, -0.7, 0.98), (0.96, 0.05, 0.05), BIKE_DARK)
+    for sx in (-1, 1):
+        mb.rbox((sx * 0.42, -0.7, 0.98), (0.12, 0.08, 0.08), "#6A4BD8", radius=0.02)
+    mb.box((0, seat[0] + 0.02, seat[1] + 0.04), (0.05, 0.05, 0.1), BIKE_DARK)
+    mb.rbox((0, seat[0] + 0.04, seat[1] + 0.09), (0.15, 0.32, 0.06), BIKE_DARK, radius=0.02)
+    mb.cyl((0.09, bb[0], bb[1]), 0.1, 0.03, "#C9D3DE", segs=10, rot=(0, math.pi / 2, 0))
+    for sx in (-1, 1):
+        mb.box((sx * 0.2, bb[0], bb[1]), (0.12, 0.09, 0.03), BIKE_DARK)
+    frame = attach(rig, "root", mb, name + ".bike", collection, outline=outline)
+    for tag, (y, z) in (("wheelF", front), ("wheelR", rear)):
+        w = MeshBuilder()
+        w.cyl((0, 0, 0), WHEEL_R, 0.11, BIKE_DARK, segs=18, rot=(0, math.pi / 2, 0))
+        w.cyl((0, 0, 0), WHEEL_R * 0.78, 0.115, "#4A4A55", segs=18, rot=(0, math.pi / 2, 0))
+        for k in range(3):
+            w.box((0, 0, 0), (0.125, WHEEL_R * 1.5, 0.03), "#D8DEE6", rot=(k * math.pi / 3, 0, 0))
+        w.cyl((0, 0, 0), 0.06, 0.15, "#C9D3DE", segs=8, rot=(0, math.pi / 2, 0))
+        obj = w.to_object(f"{name}.{tag}", collection)
+        if outline:
+            castlib.add_outline(obj, outline)
+        obj.parent = frame
+        obj.location = (0, y, z)
+    return frame
+
+
 def _make_armature(name, collection):
     arm_data = bpy.data.armatures.new(name + "_rig")
     rig = bpy.data.objects.new(name, arm_data)
@@ -537,11 +691,14 @@ EYE_COLORS = {"armor": "#2E8B57"}
 
 
 SABER_OUTFIT = {"shirt_style": "armor", "shirt_color": "#2A4FB5", "pants_color": "#2A4FB5"}
+MTB_PROPS = {"helmet", "gloves", "windbreaker", "bike"}
+SQUIRE_PROPS = {"tabard", "satchel", "pennant"}
 
 
 def build_character(look, name="Cast", collection=None, variant=0, props=(), outfit=None, outline=True):
     """props: extra items for this shot ("sword", "camera", "glow", "cape", "banner", "laptop", "lanyard", "ylogo"),
-    on top of look["accessory"]. outfit="saber" swaps in the armour, cape and sword but keeps face and hair."""
+    on top of look["accessory"]. outfit="saber" swaps in the armour, cape and sword but keeps face and hair; outfit="mtb" adds a trail helmet, gloves,
+    a windbreaker in the look's shirt colour and the bike (on the root bone, see animations.apply_action(mounted=True))."""
     collection = collection or bpy.context.scene.collection
     look = sanitize_look(look, variant)
     if outfit == "saber":
@@ -549,16 +706,26 @@ def build_character(look, name="Cast", collection=None, variant=0, props=(), out
         if look["accessory"] in ("bowtie", "camera"):
             look["accessory"] = "none"
         props = set(props or ()) | {"sword", "cape"}
+    if outfit == "squire":
+        look["pants_color"] = look["pants_color"] if luma(look["pants_color"]) < 0.4 else "#3A2A1F"
+        props = set(props or ()) | SQUIRE_PROPS
+        if "banner" in props:
+            props.discard("pennant")
+    if outfit == "mtb":
+        look["shirt_style"] = "hoodie"
+        if look["accessory"] in ("cap", "beanie", "cowboy_hat", "crown", "headphones", "bowtie", "camera", "sword"):
+            look["accessory"] = "none"
+        props = set(props or ()) | MTB_PROPS
     props = set(props or ()) | {look["accessory"]}
     rig = _make_armature(name, collection)
     rig["look"] = str(look)
+    rig["mounted"] = "bike" in props
     OUT = 0.011 if outline else 0.0
-    hat = look["accessory"] in ("cap", "beanie", "cowboy_hat")
+    hat = look["accessory"] in ("cap", "beanie", "cowboy_hat") or "helmet" in props
 
     head = MeshBuilder()
     _head_base(head, look)
     _eyes(head, look, EYE_COLORS.get(look["shirt_style"], "#4A2C1A" if luma(look["skin_tone"]) < 0.8 else "#3B6EA5"))
-    _mouth_closed(head)
     _facial_hair(head, look["facial_hair"], look)
     _glasses(head, look["glasses"])
     attach(rig, "head", head, name + ".head", collection, outline=OUT)
@@ -568,6 +735,8 @@ def build_character(look, name="Cast", collection=None, variant=0, props=(), out
     if look["shirt_style"] == "armor" and look["hair_style"] in ("bun", "ponytail", "long"):
         _saber_hair(hair, look["hair_color"])
     _accessory_head(hair, look["accessory"], look)
+    if "helmet" in props:
+        _helmet(hair, look)
     if hair.bm.verts:
         attach(rig, "head", hair, name + ".hair", collection, outline=OUT)
     else:
@@ -582,6 +751,13 @@ def build_character(look, name="Cast", collection=None, variant=0, props=(), out
     mouth_obj = attach(rig, "head", mouth, name + ".mouth_open", collection)
     mouth_obj.hide_render = True
     rig["lids"] = lid_obj.name
+    for group, kinds, build in (("brows", BROW_KINDS, lambda m, k: _brows(m, look, k)), ("mouth", MOUTH_KINDS, _mouth_kind)):
+        for k in kinds:
+            mb = MeshBuilder()
+            build(mb, k)
+            o = attach(rig, "head", mb, f"{name}.{group}_{k}", collection)
+            o.hide_render = k != "neutral"
+            rig[f"{group}_{k}"] = o.name
     rig["mouth_open"] = mouth_obj.name
 
     torso = MeshBuilder()
@@ -594,6 +770,14 @@ def build_character(look, name="Cast", collection=None, variant=0, props=(), out
         _lanyard(torso)
     if "ylogo" in props:
         _y_logo(torso)
+    if "windbreaker" in props:
+        _windbreaker(torso, look)
+    if "tabard" in props:
+        _tabard(torso)
+    if "satchel" in props:
+        _satchel(torso)
+    if "pennant" in props:
+        _pennant(torso)
     if look["accessory"] == "bowtie":
         bt = "#C1121F" if look["shirt_style"] != "suit" else "#111111"
         for sx in (-1, 1):
@@ -610,6 +794,10 @@ def build_character(look, name="Cast", collection=None, variant=0, props=(), out
             _sword(arm)
         if side == "R" and "banner" in props:
             _banner(arm)
+        if "gloves" in props:
+            _glove(arm, x)
+        if side == "R" and "horns" in props:
+            _horns(arm, x, GLOVE if "gloves" in props else look["skin_tone"])
         if side == "L" and "laptop" in props:
             _laptop(arm)
         if side == "R" and "glow" in props:
@@ -619,4 +807,6 @@ def build_character(look, name="Cast", collection=None, variant=0, props=(), out
         leg = MeshBuilder()
         _leg(leg, x * 0.155 / ARM_X, look)
         attach(rig, "leg_" + side, leg, f"{name}.leg_{side}", collection, outline=OUT)
+    if "bike" in props:
+        _bike(rig, name, collection, OUT)
     return rig

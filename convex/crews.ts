@@ -1,6 +1,7 @@
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
-import { action, internalAction, internalMutation, internalQuery, mutation, query } from "./_generated/server";
+import type { Doc, Id } from "./_generated/dataModel";
+import { action, internalAction, internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import { ownerCard } from "./movies";
 import { reelPreview } from "./social";
 
@@ -37,34 +38,49 @@ export const setWhopChannel = internalMutation({
   },
 });
 
+async function thumb(ctx: QueryCtx, movie: Doc<"movies"> | null) {
+  const previews = movie?.previews ?? [];
+  const pick = previews[Math.floor(previews.length / 2)];
+  return pick ? await ctx.storage.getUrl(pick.storageId) : null;
+}
+
+async function crewCard(ctx: QueryCtx, crew: Doc<"crews">, userId?: Id<"users">) {
+  const members = await ctx.db
+    .query("crewMembers")
+    .withIndex("by_crew", (q) => q.eq("crewId", crew._id))
+    .collect();
+  const faces = (await Promise.all(members.slice(0, 5).map((m) => ownerCard(ctx, m.userId)))).filter((f) => f !== null);
+  const live = await ctx.db
+    .query("coops")
+    .withIndex("by_crew", (q) => q.eq("crewId", crew._id))
+    .filter((q) => q.eq(q.field("status"), "lobby"))
+    .first();
+  return {
+    _id: crew._id,
+    slug: crew.slug,
+    name: crew.name,
+    emoji: crew.emoji,
+    blurb: crew.blurb,
+    accent: crew.accent ?? "#FFD23F",
+    onWhop: !!crew.whopChannelId,
+    whop: !!crew.whop || !!crew.whopChannelId,
+    premium: crew.premium ?? null,
+    challenge: crew.challenge ?? null,
+    members: members.length + (crew.memberBase ?? 0),
+    faces,
+    joined: !!userId && members.some((m) => m.userId === userId),
+    cover: await thumb(ctx, crew.coverMovieId ? await ctx.db.get(crew.coverMovieId) : null),
+    liveCoopId: live?._id ?? null,
+    rank: crew.rank ?? 99,
+  };
+}
+
 export const list = query({
   args: { userId: v.optional(v.id("users")) },
   handler: async (ctx, { userId }) => {
     const crews = await ctx.db.query("crews").collect();
-    return await Promise.all(
-      crews.map(async (crew) => {
-        const members = await ctx.db
-          .query("crewMembers")
-          .withIndex("by_crew", (q) => q.eq("crewId", crew._id))
-          .collect();
-        const last = await ctx.db
-          .query("crewPosts")
-          .withIndex("by_crew", (q) => q.eq("crewId", crew._id))
-          .order("desc")
-          .first();
-        return {
-          _id: crew._id,
-          slug: crew.slug,
-          name: crew.name,
-          emoji: crew.emoji,
-          blurb: crew.blurb,
-          onWhop: !!crew.whopChannelId,
-          members: members.length,
-          joined: !!userId && members.some((m) => m.userId === userId),
-          last: last ? { author: last.authorName, body: last.body || "Shared a reel 🎬", at: last._creationTime } : null,
-        };
-      }),
-    );
+    const cards = await Promise.all(crews.map((crew) => crewCard(ctx, crew, userId)));
+    return cards.sort((x, y) => x.rank - y.rank);
   },
 });
 
@@ -76,35 +92,39 @@ export const get = query({
       .withIndex("by_slug", (q) => q.eq("slug", slug))
       .first();
     if (!crew) return null;
-    const members = await ctx.db
-      .query("crewMembers")
-      .withIndex("by_crew", (q) => q.eq("crewId", crew._id))
-      .collect();
     const posts = await ctx.db
       .query("crewPosts")
       .withIndex("by_crew", (q) => q.eq("crewId", crew._id))
       .order("desc")
-      .take(80);
+      .take(120);
+    const seen = new Set<string>();
+    const wall = [];
+    for (const p of posts) {
+      if (!p.movieId || seen.has(p.movieId)) continue;
+      seen.add(p.movieId);
+      const movie = await ctx.db.get(p.movieId);
+      if (!movie || movie.status !== "done") continue;
+      const thumbnailUrl = await thumb(ctx, movie);
+      if (!thumbnailUrl) continue;
+      wall.push({ _id: movie._id, title: movie.story.title, likes: movie.likes ?? 0, views: movie.views ?? (movie.likes ?? 0) * 23 + 412, thumbnailUrl });
+    }
     return {
-      _id: crew._id,
-      slug: crew.slug,
-      name: crew.name,
-      emoji: crew.emoji,
-      blurb: crew.blurb,
-      onWhop: !!crew.whopChannelId,
-      members: members.length,
-      joined: !!userId && members.some((m) => m.userId === userId),
+      ...(await crewCard(ctx, crew, userId)),
+      wall,
       posts: await Promise.all(
-        posts.reverse().map(async (p) => ({
-          _id: p._id,
-          body: p.body,
-          at: p._creationTime,
-          source: p.source,
-          mine: !!userId && p.userId === userId,
-          author: p.userId ? await ownerCard(ctx, p.userId) : null,
-          authorName: p.authorName,
-          reel: await reelPreview(ctx, p.movieId),
-        })),
+        posts
+          .slice(0, 80)
+          .reverse()
+          .map(async (p) => ({
+            _id: p._id,
+            body: p.body,
+            at: p._creationTime,
+            source: p.source,
+            mine: !!userId && p.userId === userId,
+            author: p.userId ? await ownerCard(ctx, p.userId) : null,
+            authorName: p.authorName,
+            reel: await reelPreview(ctx, p.movieId),
+          })),
       ),
     };
   },

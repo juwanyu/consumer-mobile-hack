@@ -8,6 +8,7 @@ import type { Id } from '../../../../convex/_generated/dataModel';
 import { REEL_TEMPLATES } from '../../../../convex/reels';
 import { BlockyCharacter } from '@/components/blocky-character';
 import { ClapperButton } from '@/components/clapper-button';
+import { DirectorSheet } from '@/components/director-sheet';
 import { Label, Screen } from '@/components/ui';
 import { library } from '@/library';
 import { colors, radius, type } from '@/theme';
@@ -24,6 +25,7 @@ export default function ReelEditor() {
   const lock = useMutation(api.movies.action);
   const [beats, setBeats] = useState<Beat[] | null>(null);
   const [rolling, setRolling] = useState(false);
+  const [director, setDirector] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
@@ -137,8 +139,12 @@ export default function ReelEditor() {
           <Text style={type.small}>Use {'{master}'} and {'{caster}'} to drop in the cast's names.</Text>
           {error ? <Text style={{ color: colors.red, fontWeight: '700' }}>{error}</Text> : null}
         </ScrollView>
+        <Pressable testID="open-director" onPress={() => setDirector(true)} style={styles.director}>
+          <Text style={styles.directorText}>🎬 Director</Text>
+        </Pressable>
         <ClapperButton onPress={roll} loading={rolling} />
       </KeyboardAvoidingView>
+      <DirectorSheet movieId={id} visible={director} onClose={() => setDirector(false)} onApplied={() => setBeats(null)} />
     </Screen>
   );
 }
@@ -146,6 +152,8 @@ export default function ReelEditor() {
 const styles = StyleSheet.create({
   content: { gap: 14, paddingBottom: 24 },
   slot: { gap: 8 },
+  director: { position: 'absolute', right: 4, bottom: 96, backgroundColor: colors.yellow, borderRadius: radius.pill, paddingHorizontal: 16, paddingVertical: 12, shadowColor: '#000', shadowOpacity: 0.4, shadowRadius: 8 },
+  directorText: { color: '#000', fontWeight: '900', fontSize: 15 },
   person: { width: 76, alignItems: 'center', gap: 4, backgroundColor: colors.surface, borderRadius: radius.md, padding: 8, borderWidth: 2, borderColor: 'transparent' },
   beat: { gap: 8, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 16, borderLeftWidth: 4 },
   input: { backgroundColor: colors.bg, borderRadius: radius.md, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12, paddingVertical: 10 },

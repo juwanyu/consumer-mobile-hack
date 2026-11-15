@@ -369,41 +369,169 @@ def pose_banner(t, T):
     return p, 0.0, 0.0
 
 
+BIKE_SPEED = 7.0
+BIKE_LIFT = 0.45
+WHEEL_R = 0.4
+JUMP_TAKEOFF, JUMP_LAND = 0.3, 0.72
+JUMP_HEIGHT = 2.0
+KICKER_LEN, KICKER_H = 1.8, 0.7
+
+
+def jump_profile(T):
+    """Trail distances (m) of the kicker lip and the landing for a bike_jump lasting T action-seconds."""
+    return BIKE_SPEED * JUMP_TAKEOFF * T, BIKE_SPEED * JUMP_LAND * T
+
+
+def _ride_legs(p, t, pedal=True):
+    s = math.sin(2 * math.pi * 1.6 * t) if pedal else 0.0
+    p["leg_L"] = [-0.25 + 0.3 * s, 0.0, -0.06]
+    p["leg_R"] = [-0.25 - 0.3 * s, 0.0, 0.06]
+
+
+def _bars(p, lean=0.35, left=True):
+    """Lean the torso and reach both hands to the handlebar."""
+    p["torso"][0] = lean
+    p["head"][0] = -lean * 0.85
+    reach = 0.97 + lean
+    if left:
+        _set(p, "arm_L", _arm(reach, 0.1, 1))
+    _set(p, "arm_R", _arm(reach, 0.1, -1))
+
+
+def pose_bike_ride(t, T):
+    p = _blank()
+    _bars(p)
+    _ride_legs(p, t)
+    s = math.sin(2 * math.pi * 0.7 * t)
+    p["root"][2] = 0.07 * s
+    p["torso"][2] = 0.04 * s
+    return p, BIKE_SPEED * t, 0.03 * abs(math.sin(2 * math.pi * 3.1 * t))
+
+
+def pose_bike_jump(t, T):
+    """Approach and climb the kicker, airborne whip, land with a suspension squash, ride out."""
+    p = _blank()
+    d = BIKE_SPEED * t
+    d_to, _ = jump_profile(T)
+    u = t / T
+    up = 0.0
+    if u < JUMP_TAKEOFF:
+        _bars(p, 0.3)
+        _ride_legs(p, t)
+        k = (d - (d_to - KICKER_LEN)) / KICKER_LEN
+        if k > 0:
+            up = KICKER_H * min(1.0, k)
+            p["root"][0] = -0.36 * min(1.0, k * 1.5)
+    elif u < JUMP_LAND:
+        a = (u - JUMP_TAKEOFF) / (JUMP_LAND - JUMP_TAKEOFF)
+        up = KICKER_H * (1 - a) + 4 * JUMP_HEIGHT * a * (1 - a)
+        _bars(p, 0.15)
+        _ride_legs(p, t, pedal=False)
+        whip = math.sin(math.pi * a)
+        p["root"][1] = 0.8 * whip
+        p["root"][2] = 0.5 * whip
+        p["root"][0] = -0.36 * (1 - a) + 0.22 * a
+        p["head"][1] = -0.55 * whip
+    else:
+        k = (u - JUMP_LAND) / (1 - JUMP_LAND)
+        squash = math.sin(min(1.0, k * 3) * math.pi)
+        _bars(p, 0.35 + 0.3 * squash)
+        _ride_legs(p, t)
+        p["root"][0] = 0.22 * max(0.0, 1 - k * 4)
+        up = -0.12 * squash
+    return p, d, up
+
+
+def pose_rock_on(t, T):
+    """Stopped on the bike, left hand on the bar, right hand thrown at the camera with the horns, head banging."""
+    p = _blank()
+    _bars(p, 0.12)
+    k = _ease(t / 0.35)
+    nod = math.sin(2 * math.pi * 2.2 * t) * k
+    _set(p, "arm_R", _arm(1.95 * k + 0.08 * nod, -0.3 * k, -1))
+    p["head"][0] = 0.18 * nod
+    p["torso"][0] = 0.12 + 0.05 * nod
+    return p, 0.0, 0.0
+
+
 ACTIONS = {
     "idle": pose_idle, "walk": pose_walk, "run": pose_run, "jump": pose_jump, "wave": pose_wave,
     "point": pose_point, "punch": pose_punch, "dance": pose_dance, "celebrate": pose_celebrate,
     "fall": pose_fall, "sneak": pose_sneak, "talk": pose_talk, "scared": pose_scared, "sit": pose_sit,
     "summon": pose_summon, "slash": pose_slash, "film": pose_film,
     "charge": pose_charge, "raise_sword": pose_raise_sword, "block": pose_block, "thumbs_up": pose_thumbs_up,
-    "banner": pose_banner,
+    "banner": pose_banner, "bike_ride": pose_bike_ride, "bike_jump": pose_bike_jump, "rock_on": pose_rock_on,
 }
+BIKE_ACTIONS = {"bike_ride", "bike_jump"}
 
 ACTION_PROPS = {"slash": "sword", "film": "camera", "summon": "glow", "charge": "sword", "raise_sword": "sword",
-                "block": "sword", "banner": "banner"}
+                "block": "sword", "banner": "banner", "rock_on": "horns"}
 
 
 def supported_actions():
     return [a for a in castlib.library()["actions"] if a in ACTIONS]
 
 
-def apply_action(rig, action_name, start_frame, frame_count, step=2, travel=1.0):
-    """Keyframe action_name on rig for frame_count frames from start_frame. Unknown actions fall back to idle."""
+LAG = 0.07
+
+
+def apply_action(rig, action_name, start_frame, frame_count, step=2, travel=1.0, speed=1.0, mounted=False):
+    """Keyframe action_name on rig for frame_count frames from start_frame. Unknown actions fall back to idle.
+
+    speed < 1 plays the motion slowed down over the same frames (slowmo). mounted: the rig sits on its bike, so it is
+    lifted to the saddle, non-bike actions keep the legs on the pedals, and the wheels spin with the travel.
+    Returns [(frame, horizontal displacement, up)] samples."""
     fn = ACTIONS.get(action_name if isinstance(action_name, str) else "", pose_idle)
     frame_count = max(1, int(frame_count))
     base = rig.location.copy()
     forward = rig.matrix_world.to_3x3().normalized() @ Vector((0, -1, 0))
     forward.z = 0
     forward = forward.normalized() if forward.length > 1e-6 else Vector((0, -1, 0))
-    T = frame_count / FPS
+    T = frame_count / FPS * speed
+    phase = (sum(map(ord, rig.name)) % 97) / 97 * 2 * math.pi
+    prev = None
+    squash = 0
+    wheels = [o for o in rig.children_recursive if o.name.endswith((".wheelF", ".wheelR"))] if mounted else []
+    samples = []
     frames = list(range(0, frame_count, step))
     if frames[-1] != frame_count - 1:
         frames.append(frame_count - 1)
     for i in frames:
-        t = i / FPS
+        t = i / FPS * speed
         pose, fwd, up = fn(t, T)
         f = start_frame + i
+        rt = i / FPS
+        if t > 0:
+            lagged, _, _ = fn(max(0.0, t - LAG * speed), T)
+            for b, w in (("head", 0.45), ("arm_L", 0.35), ("arm_R", 0.35)):
+                pose[b] = [a * (1 - w) + c * w for a, c in zip(pose[b], lagged[b])]
+        pose["torso"][0] += 0.018 * math.sin(2 * math.pi * 0.33 * rt + phase)
+        pose["torso"][2] += 0.025 * math.sin(2 * math.pi * 0.21 * rt + phase)
+        pose["head"][2] += 0.035 * math.sin(2 * math.pi * 0.17 * rt + 2 * phase)
+        pose["head"][1] += 0.05 * math.sin(2 * math.pi * 0.13 * rt + 3 * phase)
+        if mounted:
+            up += BIKE_LIFT
+            if action_name not in BIKE_ACTIONS:
+                _ride_legs(pose, t, pedal=False)
         rig.location = base + forward * (fwd * travel) + Vector((0, 0, up))
         rig.keyframe_insert("location", frame=f)
+        h = up - (BIKE_LIFT if mounted else 0.0)
+        sz = 1.0
+        if prev is not None:
+            v = (h - prev[0]) / max(1e-3, (i - prev[1]) / FPS)
+            if prev[0] > 0.12 and h <= 0.05 and v < -0.8:
+                squash = 3
+            sz = 1.0 + min(0.1, abs(v) * 0.03)
+        if squash:
+            sz = (0.84, 0.9, 0.96)[3 - squash]
+            squash -= 1
+        prev = (h, i)
+        rig.scale = (1 / math.sqrt(sz), 1 / math.sqrt(sz), sz)
+        rig.keyframe_insert("scale", frame=f)
+        samples.append((f, forward * (fwd * travel), up))
+        for w in wheels:
+            w.rotation_euler.x = -fwd * travel / WHEEL_R
+            w.keyframe_insert("rotation_euler", index=0, frame=f)
         for bname in BONE_NAMES:
             pb = rig.pose.bones.get(bname)
             if pb is None:
@@ -411,4 +539,5 @@ def apply_action(rig, action_name, start_frame, frame_count, step=2, travel=1.0)
             pb.rotation_euler = Euler(pose.get(bname, (0, 0, 0)))
             pb.keyframe_insert("rotation_euler", frame=f)
     rig.location = base
-    return rig
+    rig.scale = (1, 1, 1)
+    return samples

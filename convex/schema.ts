@@ -88,6 +88,7 @@ export default defineSchema({
     parentId: v.optional(v.id("comments")),
     likes: v.optional(v.number()),
     pinned: v.optional(v.boolean()),
+    at: v.optional(v.number()),
   }).index("by_movie", ["movieId"]),
   commentLikes: defineTable({ commentId: v.id("comments"), userId: v.id("users") }).index("by_comment_user", ["commentId", "userId"]),
   messages: defineTable({
@@ -119,7 +120,36 @@ export default defineSchema({
     blurb: v.string(),
     whopChannelId: v.optional(v.string()),
     syncedAt: v.optional(v.number()),
+    memberBase: v.optional(v.number()),
+    accent: v.optional(v.string()),
+    coverMovieId: v.optional(v.id("movies")),
+    challenge: v.optional(v.object({ title: v.string(), prize: v.string(), endsAt: v.number() })),
+    whop: v.optional(v.boolean()),
+    premium: v.optional(v.object({ label: v.string(), price: v.string(), url: v.string() })),
+    rank: v.optional(v.number()),
   }).index("by_slug", ["slug"]),
+  coops: defineTable({
+    crewId: v.id("crews"),
+    templateId: v.string(),
+    title: v.string(),
+    createdBy: v.id("users"),
+    status: v.union(v.literal("lobby"), v.literal("rolling"), v.literal("done")),
+    movieId: v.optional(v.id("movies")),
+    slots: v.array(
+      v.object({
+        id: v.string(),
+        role: v.string(),
+        emoji: v.string(),
+        userId: v.optional(v.id("users")),
+        claimedAt: v.optional(v.number()),
+        editingAt: v.optional(v.number()),
+        beats: v.array(v.number()),
+      }),
+    ),
+    lines: v.array(v.string()),
+  })
+    .index("by_crew", ["crewId"])
+    .index("by_status", ["status"]),
   crewMembers: defineTable({ crewId: v.id("crews"), userId: v.id("users") })
     .index("by_crew", ["crewId", "userId"])
     .index("by_user", ["userId"]),
@@ -134,4 +164,12 @@ export default defineSchema({
   })
     .index("by_crew", ["crewId"])
     .index("by_whop_id", ["whopMessageId"]),
+  directorMessages: defineTable({
+    movieId: v.id("movies"),
+    userId: v.optional(v.id("users")),
+    role: v.union(v.literal("user"), v.literal("assistant")),
+    text: v.string(),
+    changes: v.optional(v.any()),
+    cut: v.optional(v.any()),
+  }).index("by_movie", ["movieId"]),
 });

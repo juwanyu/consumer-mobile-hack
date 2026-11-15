@@ -105,7 +105,9 @@ export const profile = query({
       .order("desc")
       .take(60);
     const isMe = viewerId === user._id;
-    const visible = isMe ? movies : movies.filter((m) => m.status === "done" && m.postedToFeed);
+    const visible = (isMe ? movies : movies.filter((m) => m.status === "done" && m.postedToFeed)).sort(
+      (a, b) => Number(b.status === "done") - Number(a.status === "done") || (b.likes ?? 0) - (a.likes ?? 0),
+    );
     const reels = await Promise.all(visible.map(async (m) => ({ ...(await feedItem(ctx, m)), status: m.status })));
     const followers = await ctx.db
       .query("follows")

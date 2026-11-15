@@ -47,7 +47,7 @@ export default function Inbox() {
           <Text style={styles.newGroupText}>＋ New group</Text>
         </Pressable>
       </View>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.people} style={{ flexGrow: 0 }}>
+      <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.people} style={{ flexGrow: 0, flexShrink: 0, minHeight: 108 }}>
         {(people ?? []).map((p) => (
           <Pressable key={p._id} onPress={() => router.push({ pathname: '/inbox/[peer]', params: { peer: p._id } })} style={styles.person}>
             <Avatar look={p.look} name={p.name} size={60} ring />

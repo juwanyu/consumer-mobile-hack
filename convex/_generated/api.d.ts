@@ -10,7 +10,9 @@
 
 import type * as casting from "../casting.js";
 import type * as comments from "../comments.js";
+import type * as coop from "../coop.js";
 import type * as crews from "../crews.js";
+import type * as director from "../director.js";
 import type * as groups from "../groups.js";
 import type * as lookAi from "../lookAi.js";
 import type * as looks from "../looks.js";
@@ -32,7 +34,9 @@ import type {
 declare const fullApi: ApiFromModules<{
   casting: typeof casting;
   comments: typeof comments;
+  coop: typeof coop;
   crews: typeof crews;
+  director: typeof director;
   groups: typeof groups;
   lookAi: typeof lookAi;
   looks: typeof looks;

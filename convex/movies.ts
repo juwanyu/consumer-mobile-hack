@@ -3,6 +3,7 @@ import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { internalMutation, mutation, query, type QueryCtx } from "./_generated/server";
 import { buildReelPlan, type SlotCast } from "./reelPlan";
+import { latestCut } from "./director";
 import { REEL_TEMPLATES, type SlotId } from "./reels";
 import library from "../shared/assetLibrary.json";
 import { buildShotPlan, cleanStory, isGenre, storyValidator, templateStory, type PlanCast } from "./story";
@@ -160,7 +161,7 @@ export const action = mutation({
         if (!member?.look) throw new Error(`${member?.name ?? "A cast member"} doesn't have a look yet`);
         slotCast.push({ slot: (slot ?? "master") as SlotId, name: member.name, role, look: member.look });
       }
-      const plan = buildReelPlan(movie.reel.templateId, movie.reel.beats, slotCast);
+      const plan = buildReelPlan(movie.reel.templateId, movie.reel.beats, slotCast, await latestCut(ctx, movieId));
       await ctx.db.patch(movieId, {
         status: "voicing",
         plan,

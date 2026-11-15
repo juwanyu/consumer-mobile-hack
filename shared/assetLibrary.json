@@ -1,5 +1,5 @@
 {
-  "version": 3,
+  "version": 4,
   "render": {
     "width": 720,
     "height": 1280,
@@ -105,6 +105,9 @@
     },
     "castle_wall": {
       "label": "Castle Wall"
+    },
+    "mountain_trail": {
+      "label": "Mountain Trail"
     }
   },
   "character_marks": [
@@ -151,7 +154,10 @@
     "raise_sword",
     "block",
     "thumbs_up",
-    "banner"
+    "banner",
+    "bike_ride",
+    "bike_jump",
+    "rock_on"
   ],
   "genres": {
     "heist": {
@@ -251,6 +257,16 @@
         "capy_castle",
         "castle_wall"
       ]
+    },
+    "mtb": {
+      "label": "MTB",
+      "emoji": "🚵",
+      "roles": [
+        "Rider"
+      ],
+      "default_locations": [
+        "mountain_trail"
+      ]
     }
   },
   "fx": [
@@ -263,7 +279,9 @@
     "army",
     "army_fall",
     "shockwave",
-    "embers"
+    "embers",
+    "dust",
+    "slowmo"
   ],
   "styles": {
     "cinematic": {
@@ -296,7 +314,15 @@
   "outfits": {
     "saber": {
       "label": "Saber armour",
-      "description": "Blue armoured dress, cape and sword over the cast member's own face and hair"
+      "description": "Blue armoured dress, cape and sword over the cast member's own face and hair. Also applied when a cast role is \"Saber\"."
+    },
+    "mtb": {
+      "label": "MTB kit",
+      "description": "Trail helmet over their own hair, gloves, a windbreaker in their shirt colour, and the mountain bike they ride"
+    },
+    "squire": {
+      "label": "Squire",
+      "description": "Blue tabard with gold trim and a CAPY crest, leather belt, satchel and a pennant on the back, over their own face and hair. Also applied when a cast role is \"Squire\"."
     }
   }
 }
