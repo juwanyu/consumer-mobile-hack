@@ -8,7 +8,9 @@
  * @module
  */
 
-import type * as items from "../items.js";
+import type * as casting from "../casting.js";
+import type * as lookAi from "../lookAi.js";
+import type * as looks from "../looks.js";
 
 import type {
   ApiFromModules,
@@ -17,7 +19,9 @@ import type {
 } from "convex/server";
 
 declare const fullApi: ApiFromModules<{
-  items: typeof items;
+  casting: typeof casting;
+  lookAi: typeof lookAi;
+  looks: typeof looks;
 }>;
 
 /**

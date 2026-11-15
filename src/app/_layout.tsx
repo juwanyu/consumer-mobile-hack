@@ -1,25 +1,29 @@
-import { ConvexProvider, ConvexReactClient } from 'convex/react';
-import { DarkTheme, DefaultTheme, ThemeProvider } from 'expo-router';
+import { ConvexProvider } from 'convex/react';
+import { Stack } from 'expo-router';
 import * as SplashScreen from 'expo-splash-screen';
-import { useColorScheme } from 'react-native';
+import { StatusBar } from 'expo-status-bar';
+import { useEffect } from 'react';
 
-import { AnimatedSplashOverlay } from '@/components/animated-icon';
-import AppTabs from '@/components/app-tabs';
+import { convex } from '@/convex';
+import { colors } from '@/theme';
 
 SplashScreen.preventAutoHideAsync();
 
-const convex = new ConvexReactClient(process.env.EXPO_PUBLIC_CONVEX_URL!, {
-  unsavedChangesWarning: false,
-});
+export default function RootLayout() {
+  useEffect(() => {
+    SplashScreen.hideAsync();
+  }, []);
 
-export default function TabLayout() {
-  const colorScheme = useColorScheme();
   return (
     <ConvexProvider client={convex}>
-      <ThemeProvider value={colorScheme === 'dark' ? DarkTheme : DefaultTheme}>
-        <AnimatedSplashOverlay />
-        <AppTabs />
-      </ThemeProvider>
+      <StatusBar style="light" />
+      <Stack
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.bg },
+          animation: 'slide_from_right',
+        }}
+      />
     </ConvexProvider>
   );
 }
