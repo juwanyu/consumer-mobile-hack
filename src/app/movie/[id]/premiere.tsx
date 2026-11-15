@@ -12,6 +12,7 @@ import type { Id } from '../../../../convex/_generated/dataModel';
 import { RemixPrice, useRemixGate } from '@/components/remix-gate';
 import { BigButton, Pill } from '@/components/ui';
 import { GENRE_COLORS, library, type GenreId } from '@/library';
+import { saveVideo } from '@/save-video';
 import { colors, type } from '@/theme';
 
 export default function Premiere() {
@@ -22,6 +23,7 @@ export default function Premiere() {
   const gate = useRemixGate(id);
   const [posting, setPosting] = useState(false);
   const [muted, setMuted] = useState(false);
+  const [saved, setSaved] = useState<'idle' | 'saving' | 'saved'>('idle');
   const titleCard = useRef(new Animated.Value(1)).current;
   const panel = useRef(new Animated.Value(0)).current;
 
@@ -101,6 +103,20 @@ export default function Premiere() {
             <Text style={styles.icon}>{muted ? '🔇' : '🔊'}</Text>
           </Pressable>
         </View>
+        <Pressable
+          testID="save-video"
+          disabled={saved !== 'idle'}
+          onPress={async () => {
+            if (!movie.videoUrl) return;
+            setSaved('saving');
+            const ok = await saveVideo(movie.videoUrl, movie.story.title);
+            setSaved(ok ? 'saved' : 'idle');
+            if (ok) setTimeout(() => setSaved('idle'), 2500);
+          }}
+          hitSlop={10}
+          style={styles.saveChip}>
+          <Text style={styles.saveChipText}>{saved === 'saved' ? 'Saved to Photos ✅' : saved === 'saving' ? 'Saving…' : '⬇️ Save video'}</Text>
+        </Pressable>
 
         <Animated.View
           style={[
@@ -154,6 +170,8 @@ const styles = StyleSheet.create({
   logline: { textAlign: 'center', color: colors.muted },
   chrome: { ...StyleSheet.absoluteFill, justifyContent: 'space-between' },
   topRow: { flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingTop: 4 },
+  saveChip: { alignSelf: 'flex-end', marginTop: 10, paddingHorizontal: 14, paddingVertical: 9, borderRadius: 999, backgroundColor: 'rgba(0,0,0,0.55)' },
+  saveChipText: { color: colors.text, fontWeight: '900', fontSize: 14 },
   iconButton: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
   icon: { color: colors.text, fontSize: 18, fontWeight: '900' },
   panel: { margin: 12, padding: 18, gap: 12, borderRadius: 28, backgroundColor: 'rgba(10,10,14,0.92)', borderWidth: 1, borderColor: colors.border },

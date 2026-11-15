@@ -47,7 +47,8 @@
         {
           "photosPermission": "Cast lets you pick one photo that becomes your blocky movie character. The photo is deleted right after."
         }
-      ]
+      ],
+      "expo-sharing"
     ],
     "experiments": {
       "typedRoutes": true,

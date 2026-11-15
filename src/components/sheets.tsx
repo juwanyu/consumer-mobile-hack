@@ -9,6 +9,7 @@ import type { Id } from '../../convex/_generated/dataModel';
 import { Avatar } from '@/components/avatar';
 import { StackedAvatars } from '@/components/stacked-avatars';
 import { useMe } from '@/me';
+import { saveVideo, shareVideo } from '@/save-video';
 import { colors, radius, type } from '@/theme';
 
 function ago(at: number) {
@@ -45,6 +46,7 @@ export function SendSheet({ movie, onClose }: { movie: { _id: Id<'movies'>; titl
   const [picked, setPicked] = useState<Set<string>>(new Set());
   const [note, setNote] = useState('');
   const [sent, setSent] = useState(false);
+  const [saving, setSaving] = useState<'save' | 'saved' | 'share' | null>(null);
 
   const close = () => {
     setPicked(new Set());
@@ -127,22 +129,44 @@ export function SendSheet({ movie, onClose }: { movie: { _id: Id<'movies'>; titl
               <View style={{ flex: 1 }}>
                 <Text style={styles.personName}>{c.name}</Text>
                 <Text style={type.small}>
-                  {c.members} members{c.onWhop ? ' · on Whop' : ''}
+                  {c.members} members
                 </Text>
               </View>
               <Text style={{ color: on ? colors.yellow : colors.faint, fontSize: 20 }}>{on ? '●' : '○'}</Text>
             </Pressable>
           );
         })}
+        {movie?.videoUrl ? (
+          <Pressable
+            testID="save-video"
+            style={styles.crewRow}
+            disabled={saving !== null}
+            onPress={async () => {
+              setSaving('save');
+              const ok = await saveVideo(movie.videoUrl!, movie.title);
+              setSaving(ok ? 'saved' : null);
+              if (ok) setTimeout(() => setSaving(null), 2500);
+            }}>
+            <Text style={{ fontSize: 24 }}>{saving === 'saved' ? '✅' : '⬇️'}</Text>
+            <Text style={[styles.personName, { flex: 1 }]}>{saving === 'saved' ? 'Saved to Photos ✅' : saving === 'save' ? 'Saving…' : 'Save video to Photos'}</Text>
+          </Pressable>
+        ) : null}
         <Pressable
           style={styles.crewRow}
+          disabled={saving !== null}
           onPress={async () => {
             if (!movie) return;
-            await Share.share({ message: `🎬 ${movie.title}. Made with Cast. Put yourself in it: consumermobilehack://movie/${movie._id}/premiere`, url: movie.videoUrl ?? undefined });
+            if (movie.videoUrl) {
+              setSaving('share');
+              await shareVideo(movie.videoUrl, movie.title);
+              setSaving(null);
+            } else {
+              await Share.share({ message: `🎬 ${movie.title}. Made with Cast.` });
+            }
             countShare({ movieId: movie._id });
           }}>
           <Text style={{ fontSize: 24 }}>↗️</Text>
-          <Text style={[styles.personName, { flex: 1 }]}>More… (Messages, AirDrop, Instagram)</Text>
+          <Text style={[styles.personName, { flex: 1 }]}>{saving === 'share' ? 'Preparing video…' : 'Share video (Instagram, TikTok, Messages)'}</Text>
         </Pressable>
         <Pressable
           style={styles.crewRow}
