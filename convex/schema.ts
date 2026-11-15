@@ -49,6 +49,10 @@ export default defineSchema({
     commentCount: v.optional(v.number()),
     shareCount: v.optional(v.number()),
     views: v.optional(v.number()),
+    artStyle: v.optional(v.string()),
+    remixPrice: v.optional(v.number()),
+    whopPlanId: v.optional(v.string()),
+    paidRemixes: v.optional(v.number()),
     remixCount: v.optional(v.number()),
     pinnedAt: v.optional(v.number()),
     attempts: v.number(),
@@ -128,6 +132,16 @@ export default defineSchema({
     premium: v.optional(v.object({ label: v.string(), price: v.string(), url: v.string() })),
     rank: v.optional(v.number()),
   }).index("by_slug", ["slug"]),
+  remixLicenses: defineTable({
+    movieId: v.id("movies"),
+    userId: v.id("users"),
+    source: v.union(v.literal("whop"), v.literal("demo")),
+    paymentId: v.optional(v.string()),
+    amount: v.number(),
+  })
+    .index("by_movie_user", ["movieId", "userId"])
+    .index("by_payment", ["paymentId"]),
+  presence: defineTable({ movieId: v.id("movies"), userId: v.id("users"), beat: v.number(), at: v.number() }).index("by_movie_user", ["movieId", "userId"]),
   coops: defineTable({
     crewId: v.id("crews"),
     templateId: v.string(),
@@ -147,6 +161,7 @@ export default defineSchema({
       }),
     ),
     lines: v.array(v.string()),
+    draftId: v.optional(v.id("movies")),
   })
     .index("by_crew", ["crewId"])
     .index("by_status", ["status"]),

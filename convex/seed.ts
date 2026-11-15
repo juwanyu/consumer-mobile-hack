@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
-import { coopLines, coopSlots } from "./coop";
+import { coopLines, coopSlots, makeDraft } from "./coop";
 import type { Look } from "./looks";
 import { REEL_TEMPLATES } from "./reels";
 
@@ -450,6 +450,8 @@ export const stats = internalMutation({
     commentCount: v.optional(v.number()),
     remixCount: v.optional(v.number()),
     title: v.optional(v.string()),
+    remixPrice: v.optional(v.number()),
+    paidRemixes: v.optional(v.number()),
   },
   handler: async (ctx, { movieId, title, ...patch }) => {
     const movie = await ctx.db.get(movieId);
@@ -478,7 +480,7 @@ export const rank = internalMutation({
 const CREWS_DEMO = [
   { slug: "anime-club", name: "Anime Club", emoji: "⚔️", accent: "#FF2E88", blurb: "Fate, Ghibli, shonen. Cast yourself into the opening.", memberBase: 12840, rank: 1,
     challenge: { title: "Summon your Servant", prize: "Featured on the For You page", days: 3 },
-    wall: ["jh79gtb7wv328zse5qwa054kf18j8863", "jh7aj0xs3sqnhjwtfj8cdqdx618j98jt", "jh7c4ngw6cd6zrvgxd2tq25wp58j8tjr", "jh7dp07jvcrma63d3ampcf4fbs8j8k64", "jh74bc0jkmcztyjdmn3gvkw8958j8wf2", "jh77egjyt39wyed4dr4kd6cv458j9fz4", "jh704es87w6z7mwkxmvr00yjy58j9jyx", "jh7806k6zt069kfa48hd6zzse18j9vw3"],
+    wall: ["jh79gtb7wv328zse5qwa054kf18j8863", "jh73a80gddxtpcf06ch7ka6jn58j8kx9", "jh788a43p9h9wr622ptf7n38598j8z54", "jh7d5kt80psvf3v8vtqw2xmyqd8j9gw3", "jh7aj0xs3sqnhjwtfj8cdqdx618j98jt", "jh7c4ngw6cd6zrvgxd2tq25wp58j8tjr", "jh7dp07jvcrma63d3ampcf4fbs8j8k64", "jh74bc0jkmcztyjdmn3gvkw8958j8wf2", "jh77egjyt39wyed4dr4kd6cv458j9fz4", "jh704es87w6z7mwkxmvr00yjy58j9jyx", "jh7806k6zt069kfa48hd6zzse18j9vw3"],
     members: ["justinyu", "justinsun", "harris", "kenji", "sofia.r", "mayachen", "zoe", "garrytan"],
     chat: [["kenji", "the castle reel is peak isekai"], ["sofia.r", "who's Saber this week?"], ["justinsun", "me. obviously ⚔️"], ["mayachen", "dropping a Ghibli-style one tonight"], ["harris", "I'll be the squire again lol"], ["zoe", "the Excalibur beam 😭"], ["garrytan", "this is the most fun thing at demo day"], ["kenji", "co-op lobby open, need a Rival"], ["justinyu", "claiming Master"], ["sofia.r", "can we get a Lancer template next"], ["mayachen", "+1 Lancer"], ["zoe", "posting my remix in 5"], ["justinsun", "remember to tag the crew"], ["kenji", "weekly challenge is live 🔥"], ["harris", "my blocky hair is perfect"], ["zoe", "the narration voice goes so hard"]] },
   { slug: "hackathon", cover: "jh7ep0trmxkyvay6jmc0vywqk98j9vyt", name: "Consumer Mobile Hack", emoji: "🛠️", accent: "#FFD23F", blurb: "Everyone building at YC today. Post your demo reel.", memberBase: 2412, rank: 2,
@@ -496,12 +498,11 @@ const CREWS_DEMO = [
     wall: ["jh72mmkvh3y7taygyqdtab1tg18j99b0", "jh79gtb7wv328zse5qwa054kf18j8863", "jh7ep0trmxkyvay6jmc0vywqk98j9vyt", "jh7ebqykwah6qjzyjz7mbgxs198j9nwy", "jh7dcryansz92nq892q53cdsm18j99hk", "jh7806k6zt069kfa48hd6zzse18j9vw3"],
     members: ["landseer", "justinyu", "noahkim", "tylerships", "devpatel_"],
     chat: [["landseer", "SEND IT is live 🤘"], ["noahkim", "the slow-mo air"], ["tylerships", "Revyl caught a crash in my build in 30s"], ["landseer", "that's the point 😎"], ["devpatel_", "co-op lobby: need a Chase rider"], ["justinyu", "grabbing Hype crew"], ["noahkim", "purple hoodie gang"], ["landseer", "biggest send wins merch"], ["tylerships", "rendering a downhill one"], ["devpatel_", "the dust fx 🔥"], ["landseer", "every frame tested on a real iPhone via Revyl"], ["noahkim", "lol"], ["justinyu", "co-op filling up"], ["tylerships", "claimed"], ["landseer", "roll camera when ready"]] },
-  { slug: "whop-dojo", name: "Whop Dojo", emoji: "🥋", accent: "#FA4616", blurb: "The new karate kids. Members-only template packs, powered by Whop.", memberBase: 3470, rank: 4, whop: true,
-    premium: { label: "Dojo template pack", price: "$5/mo", url: "https://whop.com" },
-    challenge: { title: "Wax on, wax off", prize: "Free month of the Dojo pack", days: 5 },
+  { slug: "whop-dojo", name: "Whop Dojo", emoji: "🥋", accent: "#FA4616", blurb: "The new karate kids. WAX ON is presented by Whop.", memberBase: 3470, rank: 4,
+    challenge: { title: "Wax on, wax off", prize: "Free WAX ON remix", days: 5 },
     wall: ["jh79s63xw4crdgzz8ts4ny83t98j8pqk", "jh79gtb7wv328zse5qwa054kf18j8863", "jh733ped1qzsf0697qcphvcna58j8txk", "jh74zjk1r1bzzxve12pjzynez18j9m2m", "jh704es87w6z7mwkxmvr00yjy58j9jyx", "jh77egjyt39wyed4dr4kd6cv458j9fz4"],
     members: ["lam", "justinyu", "kenji", "priya", "omar", "harris"],
-    chat: [["lam", "WAX ON just dropped 🥋"], ["kenji", "the crane kick!!"], ["priya", "is the Dojo pack worth it"], ["lam", "4 exclusive templates + co-op lobbies"], ["omar", "joined on Whop"], ["harris", "Sensei role is mine"], ["justinyu", "creators monetize templates through Whop, love it"], ["kenji", "HI-YAH"], ["lam", "co-op lobby open, need a Rival + Narrator"], ["priya", "claiming Narrator"], ["omar", "wax on wax off"], ["lam", "challenge winner gets a free month"], ["kenji", "rendering mine"], ["harris", "the dojo set looks clean"], ["priya", "🥋🥋🥋"]] },
+    chat: [["lam", "WAX ON just dropped 🥋"], ["kenji", "the crane kick!!"], ["priya", "$5 to remix WAX ON is worth it"], ["lam", "paid remixes go straight to the creator through Whop"], ["omar", "just bought a remix"], ["harris", "Sensei role is mine"], ["justinyu", "creators get paid for remixes, love it"], ["kenji", "HI-YAH"], ["lam", "co-op lobby open, need a Rival + Narrator"], ["priya", "claiming Narrator"], ["omar", "wax on wax off"], ["lam", "challenge winner gets a free remix"], ["kenji", "rendering mine"], ["harris", "the dojo set looks clean"], ["priya", "🥋🥋🥋"]] },
   { slug: "heist-society", name: "Heist Society", emoji: "🕶️", accent: "#3DDC84", blurb: "Vaults, getaways and double-crosses.", memberBase: 4215, rank: 6,
     challenge: { title: "The perfect getaway", prize: "Crew spotlight", days: 6 },
     wall: ["jh733ped1qzsf0697qcphvcna58j8txk", "jh74zjk1r1bzzxve12pjzynez18j9m2m", "jh7a0q1y7btv15zad740xckr558j90sb", "jh7c4ngw6cd6zrvgxd2tq25wp58j8tjr", "jh7ep0trmxkyvay6jmc0vywqk98j9vyt", "jh7dcryansz92nq892q53cdsm18j99hk"],
@@ -529,8 +530,8 @@ export const crewsDemo = internalMutation({
         accent: c.accent,
         memberBase: c.memberBase,
         rank: c.rank,
-        whop: c.whop ?? false,
-        premium: c.premium,
+        whop: false,
+        premium: undefined,
         challenge: { title: c.challenge.title, prize: c.challenge.prize, endsAt: now + c.challenge.days * 86400000 },
         coverMovieId: ((c as { cover?: string }).cover ?? c.wall[0]) as Id<"movies">,
       };
@@ -560,7 +561,7 @@ export const crewsDemo = internalMutation({
       for (const [h, body] of c.chat) {
         const u = poster(h);
         if (!u) continue;
-        await ctx.db.insert("crewPosts", { crewId, userId: u._id, authorName: u.name, body, source: c.whop && rand() < 0.35 ? "whop" : "cast" });
+        await ctx.db.insert("crewPosts", { crewId, userId: u._id, authorName: u.name, body, source: "cast" });
       }
       const tmpl = c.slug === "revyl-riders" ? "mtb" : c.slug === "whop-dojo" ? "karate" : "fate";
       const doneSlots = coopSlots(tmpl);
@@ -579,20 +580,32 @@ export const crewsDemo = internalMutation({
       if (c.slug === "revyl-riders" || c.slug === "whop-dojo" || c.slug === "anime-club") {
         const second = byHandle.get(c.slug === "revyl-riders" ? "noahkim" : c.slug === "whop-dojo" ? "priya" : "kenji")!;
         const lead = c.slug === "anime-club" ? byHandle.get("sofia.r")! : host;
+        const liveSlots = coopSlots(tmpl).map((s, i) =>
+          i === 0 ? { ...s, userId: lead._id, claimedAt: now - 120000 } : i === 2 ? { ...s, userId: second._id, claimedAt: now - 60000 } : s,
+        );
+        const draftId = await makeDraft(ctx, { templateId: tmpl, title: REEL_TEMPLATES[tmpl].title, createdBy: lead._id, slots: liveSlots, lines: coopLines(tmpl) });
         const liveId = await ctx.db.insert("coops", {
           crewId,
           templateId: tmpl,
           title: REEL_TEMPLATES[tmpl].title,
           createdBy: lead._id,
           status: "lobby",
-          slots: coopSlots(tmpl).map((s, i) =>
-            i === 0 ? { ...s, userId: lead._id, claimedAt: now - 120000 } : i === 2 ? { ...s, userId: second._id, claimedAt: now - 60000 } : s,
-          ),
+          slots: liveSlots,
           lines: coopLines(tmpl),
+          draftId,
         });
         out[c.slug] = liveId;
       }
     }
     return out;
+  },
+});
+
+export const planTitle = internalMutation({
+  args: { movieId: v.id("movies"), title: v.string(), logline: v.optional(v.string()) },
+  handler: async (ctx, { movieId, title, logline }) => {
+    const movie = await ctx.db.get(movieId);
+    if (!movie?.plan) return;
+    await ctx.db.patch(movieId, { plan: { ...movie.plan, title, ...(logline ? { logline } : {}) } });
   },
 });

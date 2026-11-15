@@ -443,15 +443,110 @@ def pose_bike_jump(t, T):
 
 
 def pose_rock_on(t, T):
-    """Stopped on the bike, left hand on the bar, right hand thrown at the camera with the horns, head banging."""
+    """Stopped on the bike, right hand on the bar, left hand thrown at the camera with the horns, head banging."""
     p = _blank()
     _bars(p, 0.12)
     k = _ease(t / 0.35)
     nod = math.sin(2 * math.pi * 2.2 * t) * k
-    _set(p, "arm_R", _arm(1.95 * k + 0.08 * nod, -0.3 * k, -1))
+    _set(p, "arm_L", _arm(1.95 * k + 0.08 * nod, -0.3 * k, 1))
     p["head"][0] = 0.18 * nod
     p["torso"][0] = 0.12 + 0.05 * nod
     return p, 0.0, 0.0
+
+
+CRANE_HIT = 0.62
+
+
+def _stance(p, t):
+    b = math.sin(2 * math.pi * 1.8 * t)
+    p["leg_L"] = [-0.35, 0.0, -0.12]
+    p["leg_R"] = [0.3, 0.0, 0.12]
+    p["torso"][0], p["torso"][1] = 0.1, 0.35
+    _set(p, "arm_L", _arm(1.35 + 0.06 * b, 0.15, 1))
+    _set(p, "arm_R", _arm(0.95 - 0.06 * b, 0.05, -1))
+    p["head"][1] = -0.3
+    return 0.04 * abs(b)
+
+
+def pose_wax_on(t, T):
+    """Circular polishing motions with both hands, out of phase, in a wide stance."""
+    p = _blank()
+    w = 2 * math.pi * 1.1
+    _set(p, "arm_R", _arm(1.05 + 0.35 * math.sin(w * t), 0.35 * math.cos(w * t), -1))
+    _set(p, "arm_L", _arm(1.05 + 0.35 * math.sin(w * t + math.pi), 0.35 * math.cos(w * t + math.pi), 1))
+    p["torso"][0], p["torso"][1] = 0.15, 0.12 * math.sin(w * t)
+    p["leg_L"][2], p["leg_R"][2] = -0.15, 0.15
+    p["head"][0] = 0.12
+    return p, 0.0, 0.02 * abs(math.sin(w * t))
+
+
+def pose_bow(t, T):
+    p = _blank()
+    a = max(0.0, min(1.0, (t - 0.15 * T) / (0.6 * T)))
+    k = math.sin(math.pi * a)
+    p["torso"][0] = 0.85 * k
+    p["head"][0] = 0.2 * k
+    _set(p, "arm_L", _arm(-0.55 * k, 0.05, 1))
+    _set(p, "arm_R", _arm(-0.55 * k, 0.05, -1))
+    return p, 0.0, 0.0
+
+
+def pose_taunt(t, T):
+    """Leaning back, hand on hip, the other hand beckoning 'come on'."""
+    p = _blank()
+    p["torso"][0] = -0.1
+    p["head"][2] = 0.15
+    beck = max(0.0, math.sin(2 * math.pi * 2.5 * t))
+    _set(p, "arm_R", _arm(1.35 - 0.3 * beck, -0.1, -1))
+    _set(p, "arm_L", _arm(0.3, 0.6, 1))
+    p["leg_L"][2], p["leg_R"][2] = -0.08, 0.08
+    return p, 0.0, 0.03 * abs(math.sin(2 * math.pi * 1.2 * t))
+
+
+def pose_fight_stance(t, T):
+    p = _blank()
+    up = _stance(p, t)
+    return p, 0.0, up
+
+
+def pose_crane_kick(t, T):
+    """One-leg crane with arms raised like wings, a hop, the switch kick (hit at CRANE_HIT), back to guard."""
+    p = _blank()
+    u = t / T
+    up = 0.0
+    if u < 0.5:
+        k = _ease(u / 0.15)
+        wob = 0.06 * math.sin(2 * math.pi * 1.3 * t)
+        p["leg_L"][0] = -1.45 * k
+        p["leg_R"][2] = 0.04
+        _set(p, "arm_L", _arm(0.3 * k, 2.4 * k + wob, 1))
+        _set(p, "arm_R", _arm(0.3 * k, 2.4 * k - wob, -1))
+        p["torso"][2] = wob * 0.6
+        p["head"][0] = -0.05
+    elif u < 0.75:
+        a = (u - 0.5) / 0.25
+        kick = _ease(a / 0.48) if a < 0.48 else 1 - _ease((a - 0.48) / 0.52)
+        p["leg_R"][0] = -1.75 * kick
+        p["leg_L"][0] = -1.45 * (1 - _ease(a / 0.4))
+        p["torso"][0] = -0.25 * kick
+        wing = 1 - _ease(a / 0.5)
+        _set(p, "arm_L", _arm(0.3 * wing + 1.2 * (1 - wing), 2.4 * wing + 0.3 * (1 - wing), 1))
+        _set(p, "arm_R", _arm(0.3 * wing + 0.6 * (1 - wing), 2.4 * wing + 0.2 * (1 - wing), -1))
+        up = 0.5 * math.sin(math.pi * a)
+    else:
+        up = _stance(p, t)
+    return p, 0.0, up
+
+
+def pose_trophy(t, T):
+    """Trophy held overhead with both hands, pumping, little hops."""
+    p = _blank()
+    k = _ease(t / 0.4)
+    pump = 0.12 * math.sin(2 * math.pi * 2.0 * t) * k
+    _set(p, "arm_R", _arm(2.85 * k + pump, 0.12 * k, -1))
+    _set(p, "arm_L", _arm(2.85 * k + pump, 0.12 * k, 1))
+    p["head"][0] = -0.25 * k
+    return p, 0.0, 0.12 * abs(math.sin(2 * math.pi * 1.2 * t)) * k
 
 
 ACTIONS = {
@@ -461,11 +556,13 @@ ACTIONS = {
     "summon": pose_summon, "slash": pose_slash, "film": pose_film,
     "charge": pose_charge, "raise_sword": pose_raise_sword, "block": pose_block, "thumbs_up": pose_thumbs_up,
     "banner": pose_banner, "bike_ride": pose_bike_ride, "bike_jump": pose_bike_jump, "rock_on": pose_rock_on,
+    "wax_on": pose_wax_on, "bow": pose_bow, "taunt": pose_taunt, "fight_stance": pose_fight_stance,
+    "crane_kick": pose_crane_kick, "trophy": pose_trophy,
 }
 BIKE_ACTIONS = {"bike_ride", "bike_jump"}
 
 ACTION_PROPS = {"slash": "sword", "film": "camera", "summon": "glow", "charge": "sword", "raise_sword": "sword",
-                "block": "sword", "banner": "banner", "rock_on": "horns"}
+                "block": "sword", "banner": "banner", "rock_on": "horns", "trophy": "trophy"}
 
 
 def supported_actions():

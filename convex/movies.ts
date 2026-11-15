@@ -161,7 +161,7 @@ export const action = mutation({
         if (!member?.look) throw new Error(`${member?.name ?? "A cast member"} doesn't have a look yet`);
         slotCast.push({ slot: (slot ?? "master") as SlotId, name: member.name, role, look: member.look });
       }
-      const plan = buildReelPlan(movie.reel.templateId, movie.reel.beats, slotCast, await latestCut(ctx, movieId));
+      const plan = { ...buildReelPlan(movie.reel.templateId, movie.reel.beats, slotCast, await latestCut(ctx, movieId)), art_style: movie.artStyle ?? "blocky" };
       await ctx.db.patch(movieId, {
         status: "voicing",
         plan,
@@ -376,5 +376,17 @@ export const feature = internalMutation({
   args: { movieId: v.id("movies"), posted: v.boolean() },
   handler: async (ctx, { movieId, posted }) => {
     await ctx.db.patch(movieId, { postedToFeed: posted });
+  },
+});
+
+export const ART_STYLES = ["blocky", "anime2d", "pixel", "clay", "comic"] as const;
+
+export const setArtStyle = mutation({
+  args: { movieId: v.id("movies"), artStyle: v.string() },
+  handler: async (ctx, { movieId, artStyle }) => {
+    const movie = await ctx.db.get(movieId);
+    if (!movie || movie.status !== "draft") throw new Error("The look is locked once the cameras roll");
+    if (!(ART_STYLES as readonly string[]).includes(artStyle)) throw new Error("Unknown art style");
+    await ctx.db.patch(movieId, { artStyle });
   },
 });

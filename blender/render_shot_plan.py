@@ -20,7 +20,7 @@ sys.path.insert(0, HERE)
 import castlib  # noqa: E402
 from castlib import progress  # noqa: E402
 from character import build_character  # noqa: E402
-from animations import (ACTION_PROPS, BIKE_ACTIONS, BIKE_LIFT, JUMP_LAND, JUMP_TAKEOFF, KICKER_H, KICKER_LEN, RAISE_HOLD,  # noqa: E402
+from animations import (ACTION_PROPS, BIKE_ACTIONS, BIKE_LIFT, CRANE_HIT, JUMP_LAND, JUMP_TAKEOFF, KICKER_H, KICKER_LEN, RAISE_HOLD,  # noqa: E402
                         RAISE_IMPACT, SLASH_IMPACT, SLASH_PERIOD, SLASH_RAISED, apply_action, jump_profile)
 import music  # noqa: E402
 
@@ -36,11 +36,13 @@ FOUNDER_ROLE = re.compile(r"^(.+?)\s+(co-?founder|founder|ceo|cto)$", re.I)
 
 def credit_name(member):
     """"Landseer, co-founder of Revyl" for a role like "Revyl co-founder", else "Name as Role"."""
-    m = FOUNDER_ROLE.match(member["role"])
+    role = re.sub(r"\s*[\u00b7|\-\u2013\u2014]\s*(?:powered|presented) by .+$", "", member["role"], flags=re.I) or member["role"]
+    role = re.sub(r"karate kid", "karate kid", role, flags=re.I)
+    m = FOUNDER_ROLE.match(role)
     if m:
         title = m.group(2).lower().replace("cofounder", "co-founder")
         return f"{member['name']}, {title.upper() if title in ('ceo', 'cto') else title} of {m.group(1)}"
-    return f"{member['name']} as {member['role']}"
+    return f"{member['name']} as {role}"
 
 
 def _str(v, default="", limit=140):
@@ -72,7 +74,8 @@ def sanitize_plan(plan, quality_override=None):
         if isinstance(member.get("look"), dict):
             look.update({k: v for k, v in member["look"].items() if v not in (None, "")})
         return {"id": cid or f"npc_{key}", "name": _str(member.get("name"), base.get("name", key.title()), 32),
-                "role": _str(member.get("role"), base.get("role", key.title()), 40), "look": look, "npc": True}
+                "role": _str(member.get("role"), base.get("role", key.title()), 40), "look": look, "npc": True,
+                "outfit": base.get("outfit") if base.get("outfit") in lib.get("outfits", {}) else None}
 
     def npc_key(value):
         if not isinstance(value, str):
@@ -151,6 +154,14 @@ def sanitize_plan(plan, quality_override=None):
             used_marks.add(cmark)
             action = ch.get("action") if ch.get("action") in lib["actions"] else "idle"
             chars.append({"cast_id": cid, "mark": cmark, "action": action})
+        if style == "punchy" and loc == "tournament_arena" and "rival" in npcs and len(chars) == 1 \
+                and chars[0]["action"] == "crane_kick":
+            if "npc_rival" not in by_id and len(cast) < 6:
+                cast.append(npc_entry("rival"))
+                by_id["npc_rival"] = cast[-1]
+            if "npc_rival" in by_id:
+                chars.append({"cast_id": "npc_rival", "mark": next(m for m in lib["character_marks"] if m != chars[0]["mark"]),
+                              "action": "fight_stance"})
         if not chars:
             free = [m for m in lib["character_marks"]]
             chars = [{"cast_id": c["id"], "mark": free[k], "action": "idle"} for k, c in enumerate(cast[: len(free)])]
@@ -725,6 +736,53 @@ def fx_dust(scene, name, rig, samples, f0, n, bursts, trail=False, base=None):
     return spawns
 
 
+_CROWD = {}
+
+
+def crowd_variants(scene, total):
+    """Four cheering fan rigs (no outlines) instanced as collections for the crowd fx."""
+    if _CROWD:
+        return _CROWD["colls"]
+    looks = [
+        {"skin_tone": "#F1C27D", "hair_color": "#3B2417", "hair_style": "short", "shirt_color": "#E63946", "shirt_style": "tshirt"},
+        {"skin_tone": "#8D5524", "hair_color": "#111111", "hair_style": "afro", "shirt_color": "#F4A261", "shirt_style": "hoodie"},
+        {"skin_tone": "#C68642", "hair_color": "#1B1B1B", "hair_style": "ponytail", "shirt_color": "#2A9D8F", "shirt_style": "tshirt"},
+        {"skin_tone": "#FFDBAC", "hair_color": "#C69C6D", "hair_style": "spiky", "shirt_color": "#F1FAEE", "shirt_style": "hoodie",
+         "accessory": "cap"},
+    ]
+    colls = []
+    for k, look in enumerate(looks):
+        coll = bpy.data.collections.new(f"crowd_v{k}")
+        scene.collection.children.link(coll)
+        home = Vector((-3200.0 - k * 10, 0.0, -500.0))
+        rig = build_character(look, f"fan{k}", collection=coll, outline=False)
+        rig.location = home
+        bpy.context.view_layer.update()
+        apply_action(rig, ("celebrate", "dance", "celebrate", "wave")[k], 1 - k * 7, total + 10, step=3, travel=0.0)
+        coll.instance_offset = home
+        colls.append(coll)
+    _CROWD["colls"] = colls
+    return colls
+
+
+def fx_crowd(scene, name, loc, offset, total):
+    colls = crowd_variants(scene, total)
+    rnd = random.Random(name)
+    if loc == "tournament_arena":
+        spots = [Vector((-8.6 + c * 1.25 + rnd.uniform(-0.2, 0.2), 7.6 + row * 1.2 + rnd.uniform(-0.15, 0.15), 0.5 * (row + 1)))
+                 for row in range(4) for c in range(14)]
+    else:
+        spots = [Vector((math.cos(a) * r, 3.0 + abs(math.sin(a)) * r, 0.0))
+                 for a, r in ((rnd.uniform(0.2, math.pi - 0.2), rnd.uniform(6.0, 9.0)) for _ in range(40))]
+    for k, p in enumerate(spots):
+        e = bpy.data.objects.new(f"{name}.fan{k}", None)
+        e.instance_type = "COLLECTION"
+        e.instance_collection = colls[(k * 7 + k // 14) % len(colls)]
+        e.location = offset + p
+        e.rotation_euler = (0.0, 0.0, rnd.uniform(-0.35, 0.35))
+        scene.collection.objects.link(e)
+
+
 _FOUNDERS = {}
 
 
@@ -840,7 +898,7 @@ def fx_embers(scene, name, center, f0, n, fps):
     return obj
 
 
-HIGH_ENERGY = {"army", "excalibur", "speed_lines", "shockwave", "flash", "slowmo", "dust", "army_fall"}
+HIGH_ENERGY = {"crowd", "army", "excalibur", "speed_lines", "shockwave", "flash", "slowmo", "dust", "army_fall"}
 
 TALKY = {"celebrate", "scared", "raise_sword", "charge"}
 
@@ -867,6 +925,9 @@ EXPRESSIONS = {
     "celebrate": [(0, "up", "shout")], "dance": [(0, "up", "smirk")], "scared": [(0, "up", "o")],
     "fall": [(0, "up", "o")], "jump": [(0, "up", "shout")], "run": [(0, "angry", "grit")],
     "bike_ride": [(0, "angry", "grit")], "rock_on": [(0, "angry", "shout")],
+    "wax_on": [(0, "angry", "neutral")], "bow": [(0, "neutral", "neutral")], "taunt": [(0, "neutral", "smirk")],
+    "fight_stance": [(0, "angry", "grit")], "trophy": [(0, "up", "shout")],
+    "crane_kick": [(0, "angry", "neutral"), (0.5, "angry", "grit"), (CRANE_HIT - 0.05, "angry", "shout"), (0.8, "angry", "grit")],
     "bike_jump": [(0, "angry", "grit"), (JUMP_TAKEOFF, "up", "shout"), (JUMP_LAND + 0.06, "neutral", "smirk")],
 }
 
@@ -958,6 +1019,7 @@ def build_scene(plan, progress_file=None, offset_frames=0):
     counts = shot_frame_counts(plan, fps)
     total_frames = sum(counts)
     _FOUNDERS.clear()
+    _CROWD.clear()
     colls = load_locations([s["location"] for s in plan["shots"]])
     bg, sun = make_world(scene)
     cast = {c["id"]: c for c in plan["cast"]}
@@ -1005,11 +1067,26 @@ def build_scene(plan, progress_file=None, offset_frames=0):
                                   outfit=member.get("outfit"))
             rig.location = pos
             rig.rotation_euler = (0.0, 0.0, MARK_YAW.get(ch["mark"], 0.0))
+            kicker = next((c for c in shot["characters"] if c["action"] == "crane_kick"), None)
+            duel = kicker is not None and len(shot["characters"]) > 1
+            if duel:
+                kmark = obj("mark", kicker["mark"])
+                kpos = (kmark.location if kmark else Vector((0, 0, 0))) + offset
+                if ch is kicker:
+                    rig.rotation_euler = (0.0, 0.0, math.radians(62))
+                else:
+                    rig.location = kpos + Vector((2.1, 0.0, 0.0))
+                    rig.rotation_euler = (0.0, 0.0, -math.radians(62))
             bpy.context.view_layer.update()
             mounted = member.get("outfit") == "mtb"
             travel = 1.0 if ch["action"] in BIKE_ACTIONS else 0.0 if ch["action"] == "charge" else \
                 0.35 if plan.get("style") == "punchy" else 1.0
-            samples = apply_action(rig, ch["action"], f0, shot_frames, travel=travel, speed=speed, mounted=mounted)
+            hit = f0 + int(CRANE_HIT * shot_frames)
+            if duel and ch is not kicker:
+                samples = apply_action(rig, ch["action"], f0, hit - f0, travel=travel, speed=speed)
+                apply_action(rig, "fall", hit, f0 + shot_frames - hit, travel=1.0, speed=speed)
+            else:
+                samples = apply_action(rig, ch["action"], f0, shot_frames, travel=travel, speed=speed, mounted=mounted)
             if mounted:
                 _key_linear(*[o for o in rig.children_recursive if o.name.endswith((".wheelF", ".wheelR"))])
             if ch["action"] in BIKE_ACTIONS and track is None:
@@ -1043,6 +1120,13 @@ def build_scene(plan, progress_file=None, offset_frames=0):
                 dust_bursts += [f0 + int(0.3 * shot_frames), land]
             if c["action"] in BIKE_ACTIONS:
                 ev["ride"] = True
+        if any(c["action"] == "crane_kick" for c in shot["characters"]):
+            ev["impact"] = f0 + int(CRANE_HIT * shot_frames)
+            if "slowmo" not in fx or "hero" not in ev:
+                ev["hero"], ev["hero_rank"] = ev["impact"], 3 if "shockwave" in fx else 2
+        if "crowd" in fx:
+            fx_crowd(scene, f"shot{i + 1}", loc, offset, total_frames)
+            ev["army"] = True
         if "dust" in fx:
             if track:
                 fx_dust(scene, f"shot{i + 1}", track[0], track[1], f0, shot_frames, dust_bursts, trail=True)
@@ -1557,7 +1641,7 @@ def build_edit_punchy(plan, built, wav_path, tmpdir):
         _plain_text(se, "title_rule", "\u2014\u2014  \u2756  \u2014\u2014", title_f + 3, n_t - 3, ch("title_rule"), 0.5, 0.445, 30,
                     color=(0.95, 0.75, 0.3, 1), align="CENTER", outline=0.0)
         logline, powered = plan["logline"], "powered by Capy"
-        m = re.search(r"\s*[\u00b7|\-\u2013\u2014]?\s*(powered by .+)$", logline, re.I)
+        m = re.search(r"\s*[\u00b7|\-\u2013\u2014]?\s*((?:powered|presented) by .+)$", logline, re.I)
         if m:
             logline, powered = logline[: m.start()].strip(), m.group(1).strip()
         pw = _plain_text(se, "title_powered", powered.upper(), title_f + 6, n_t - 6, ch("powered"), 0.5, 0.35, 26,

@@ -2,7 +2,7 @@ import OpenAI from "openai";
 import { v } from "convex/values";
 import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
-import { action, internalMutation, internalQuery, query, type QueryCtx } from "./_generated/server";
+import { action, internalMutation, internalQuery, mutation, query, type QueryCtx } from "./_generated/server";
 import { buildReelPlan, type ReelCut, type SlotCast } from "./reelPlan";
 import { fillNames, REEL_TEMPLATES, type Beat, type BeatCharacter, type SlotId } from "./reels";
 import library from "../shared/assetLibrary.json";
@@ -53,6 +53,49 @@ export const messages = query({
       .order("desc")
       .take(40);
     return rows.reverse().map((r) => ({ _id: r._id, at: r._creationTime, role: r.role, text: r.text, changes: (r.changes ?? []) as Change[] }));
+  },
+});
+
+export const cut = query({
+  args: { movieId: v.id("movies") },
+  handler: async (ctx, { movieId }) => {
+    const movie = await ctx.db.get(movieId);
+    if (!movie?.reel) return null;
+    const template = REEL_TEMPLATES[movie.reel.templateId];
+    const saved = await latestCut(ctx, movieId);
+    const base = saved?.beats.length ? saved.beats : (template?.beats ?? []);
+    const beats = base.map((b, i) => ({ ...b, caption: movie.reel!.beats[i]?.caption ?? b.caption, narration: movie.reel!.beats[i]?.narration ?? b.narration }));
+    return { beats, outfits: saved?.outfits ?? null, library: { locations: LOCATIONS, fx: FX, cameraMarks: CAMERA_MARKS, cameraMoves: CAMERA_MOVES } };
+  },
+});
+
+export const saveCut = mutation({
+  args: { movieId: v.id("movies"), beats: v.any(), note: v.optional(v.string()) },
+  handler: async (ctx, { movieId, beats, note }) => {
+    const movie = await ctx.db.get(movieId);
+    if (!movie?.reel || movie.status !== "draft") throw new Error("The reel is locked once the cameras roll");
+    if (!Array.isArray(beats) || beats.length === 0) throw new Error("A reel needs at least one shot");
+    const previous = await latestCut(ctx, movieId);
+    const clean: Beat[] = (beats as Beat[]).slice(0, MAX_SHOTS + 2).map((b) => ({
+      ...b,
+      location: LOCATIONS.includes(b.location) ? b.location : LOCATIONS[0],
+      fx: [b.fx].flat().filter((f) => FX.includes(f)).slice(0, 4),
+      camera: {
+        mark: CAMERA_MARKS.includes(b.camera?.mark) ? b.camera.mark : CAMERA_MARKS[0],
+        move: CAMERA_MOVES.includes(b.camera?.move) ? b.camera.move : CAMERA_MOVES[0],
+      },
+      duration: Math.min(4, Math.max(1.5, Number(b.duration) || 2.5)),
+      characters: (b.characters ?? []).map((c) => ({
+        ...c,
+        mark: MARKS.includes(c.mark) ? c.mark : MARKS[0],
+        action: ACTIONS.includes(c.action) ? c.action : "idle",
+      })),
+      caption: String(b.caption ?? "").slice(0, 60),
+      narration: String(b.narration ?? "").slice(0, 140),
+      hud: [],
+    }));
+    await ctx.db.insert("directorMessages", { movieId, role: "assistant", text: note ?? "✂️ Timeline edit saved", changes: [], cut: { beats: clean, outfits: previous?.outfits } });
+    await ctx.db.patch(movieId, { reel: { ...movie.reel, beats: clean.map((b) => ({ caption: b.caption, narration: b.narration })) } });
   },
 });
 

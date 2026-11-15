@@ -23,11 +23,13 @@ export type ReelTemplate = {
   voiceSpeed: number;
   slots: { id: SlotId; role: string; required: boolean; outfit?: string }[];
   beats: Beat[];
+  category?: string;
 };
 
 export const REEL_TEMPLATES: Record<string, ReelTemplate> = {
   fate: {
     id: "fate",
+    category: "Anime",
     label: "Fate/Ship Night",
     emoji: "⚔️",
     genre: "fate",
@@ -287,6 +289,7 @@ export const REEL_TEMPLATES: Record<string, ReelTemplate> = {
   },
   mtb: {
     id: "mtb",
+    category: "Sports",
     label: "Send It (MTB)",
     emoji: "🚵",
     genre: "mtb",
@@ -467,6 +470,7 @@ export const REEL_TEMPLATES: Record<string, ReelTemplate> = {
   },
   karate: {
     id: "karate",
+    category: "Action",
     label: "Wax On (Karate)",
     emoji: "🥋",
     genre: "karate",
@@ -685,6 +689,84 @@ export const REEL_TEMPLATES: Record<string, ReelTemplate> = {
     ]
   }
 };
+
+function B(location: string, fx: string[], mark: string, move: string, duration: number, characters: BeatCharacter[], caption: string, narration: string): Beat {
+  return { location, fx, camera: { mark, move }, duration, characters, hud: [], caption, narration };
+}
+const M = (mark: string, action: string): BeatCharacter => ({ slot: "master", mark, action });
+const C = (mark: string, action: string): BeatCharacter => ({ slot: "caster", mark, action });
+
+Object.assign(REEL_TEMPLATES, {
+  wallbreak: {
+    id: "wallbreak",
+    label: "Wallbreak",
+    emoji: "🗡️",
+    category: "Anime",
+    genre: "fate",
+    title: "WALLBREAK",
+    logline: "Humanity's last wall · powered by Capy",
+    voice: "onyx",
+    voiceSpeed: 1.15,
+    slots: [
+      { id: "master", role: "Scout Captain", required: true, outfit: "squire" },
+      { id: "caster", role: "Recruit", required: false },
+    ],
+    beats: [
+      B("castle_wall", ["embers"], "wide", "push_in", 2.6, [M("center", "idle"), C("left", "scared")], "The last wall.", "For a hundred years, the wall held."),
+      B("kaiju_city", ["shockwave", "dust"], "low_angle", "shake", 2.4, [M("center", "scared")], "Then the giants came.", "Then the giants came."),
+      B("castle_wall", ["speed_lines"], "closeup", "push_in", 2.2, [M("center", "raise_sword")], "Blades out.", "{master} draws both blades."),
+      B("kaiju_city", ["speed_lines", "dust"], "low_angle", "orbit", 2.6, [M("center", "jump")], "LEAP.", "{master} leaps off the wall."),
+      B("kaiju_city", ["flash", "shockwave"], "medium", "orbit", 2.6, [M("center", "slash"), C("right", "charge")], "One cut.", "One cut. One chance."),
+      B("castle_wall", ["embers", "sparkles"], "wide", "dolly_out", 3, [M("center", "celebrate"), C("left", "banner")], "The wall stands.", "The wall stands. For now."),
+    ],
+  },
+  shonen: {
+    id: "shonen",
+    label: "Shonen Showdown",
+    emoji: "🔥",
+    category: "Anime",
+    genre: "fate",
+    title: "FINAL FORM",
+    logline: "A rooftop rivalry · powered by Capy",
+    voice: "onyx",
+    voiceSpeed: 1.2,
+    slots: [
+      { id: "master", role: "Hero", required: true },
+      { id: "caster", role: "Rival", required: false },
+    ],
+    beats: [
+      B("rooftop", ["embers"], "wide", "push_in", 2.6, [M("left", "idle"), C("right", "point")], "Rooftop. Midnight.", "Rooftop. Midnight. {master} versus the rival."),
+      B("rooftop", ["speed_lines", "embers"], "closeup", "shake", 2.2, [M("center", "charge")], "Power rising.", "Power level rising."),
+      B("rooftop", ["magic_circle", "flash"], "low_angle", "orbit", 2.6, [M("center", "summon")], "FINAL FORM.", "This isn't even my final form."),
+      B("rooftop", ["shockwave", "speed_lines"], "medium", "shake", 2.4, [M("left", "punch"), C("right", "block")], "CLASH.", "Clash!"),
+      B("rooftop", ["dust", "flash"], "wide", "dolly_out", 2.4, [M("center", "celebrate"), C("right", "fall")], "Rival down.", "Rival down."),
+      B("rooftop", ["sparkles"], "medium", "dolly_in", 2.6, [M("center", "thumbs_up")], "To be continued…", "To be continued."),
+    ],
+  },
+  isekai: {
+    id: "isekai",
+    label: "Isekai Summon",
+    emoji: "✨",
+    category: "Anime",
+    genre: "fate",
+    title: "ANOTHER WORLD",
+    logline: "Summoned mid-latte · powered by Capy",
+    voice: "onyx",
+    voiceSpeed: 1.15,
+    slots: [
+      { id: "master", role: "Hero", required: true },
+      { id: "caster", role: "Best friend", required: false },
+    ],
+    beats: [
+      B("cafe", ["none"], "medium", "push_in", 2.4, [M("center", "sit"), C("right", "talk")], "Just another Tuesday.", "Just another Tuesday for {master}."),
+      B("cafe", ["flash", "magic_circle"], "low_angle", "shake", 2.2, [M("center", "scared")], "Then the floor glowed.", "Then the floor started glowing."),
+      B("summoning_room", ["magic_circle", "sparkles"], "wide", "orbit", 2.8, [M("center", "summon"), { slot: "npc:saber", mark: "right", action: "wave" }], "Summoned.", "Summoned to another world."),
+      B("wasteland", ["dust", "speed_lines"], "wide", "pan", 2.4, [M("center", "run")], "Level 1 hero.", "Level one. Zero gear. Infinite vibes."),
+      B("castle_wall", ["excalibur", "flash"], "low_angle", "dolly_in", 2.8, [M("center", "raise_sword")], "Skill unlocked.", "Skill unlocked."),
+      B("capy_castle", ["embers", "sparkles"], "wide", "dolly_out", 3, [M("center", "celebrate")], "Isekai'd.", "Isekai'd. Powered by Capy."),
+    ],
+  },
+} satisfies Record<string, ReelTemplate & { category: string }>);
 
 export const NPCS = library.npcs;
 

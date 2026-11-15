@@ -495,12 +495,26 @@ def _cape(mb):
         mb.ball((sx * 0.25, -0.18, 1.38), 0.05, GOLD, subdiv=1)
 
 
+PIXEL_FONT = {"C": ("111", "100", "100", "100", "111"), "A": ("010", "101", "111", "101", "101"),
+              "P": ("110", "101", "110", "100", "100"), "Y": ("101", "101", "010", "010", "010")}
+
+
 def _banner(mb):
     x, _, z = HAND_R
     mb.cyl((x, -1.0, z), 0.03, 2.6, "#6B4A2B", segs=6, rot=(math.pi / 2, 0, 0))
     mb.ball((x, -2.32, z), 0.07, GOLD, subdiv=1)
     mb.box((x - 0.55, -1.75, z), (1.1, 1.0, 0.04), "#F2994A", rot=(0, 0, 0))
-    mb.box((x - 0.55, -1.75, z + 0.025), (0.95, 0.85, 0.01), "#E07A1F")
+    for side in (1, -1):
+        mb.box((x - 0.55, -1.75, z + side * 0.025), (0.98, 0.88, 0.01), "#E07A1F")
+        px = 0.07
+        for i, ch in enumerate("CAPY"):
+            for r, row in enumerate(PIXEL_FONT[ch]):
+                for c, on in enumerate(row):
+                    if on != "1":
+                        continue
+                    off = -0.525 + i * 0.28 + c * px + px / 2
+                    mb.box((x - 0.55 - side * off, -1.75 - 0.175 + r * px + px / 2, z + side * 0.032),
+                           (px, px, 0.01), "#FFFFFF")
 
 
 def _laptop(mb):
@@ -565,6 +579,37 @@ def _pennant(mb):
     mb.ball((-0.16, 0.26, 2.42), 0.05, GOLD, subdiv=1)
     mb.box((0.05, 0.26, 2.2), (0.42, 0.02, 0.3), "#F2994A")
     mb.box((0.05, 0.26, 2.2), (0.36, 0.025, 0.06), "#FFFFFF")
+
+
+KARATE = {"karate": ("#F4F2EC", "#151515", "#FA4616"), "karate_black": ("#1A1A1D", "#8B1E1E", "#D62828")}
+
+
+def _gi(mb, gi):
+    for sx in (-1, 1):
+        mb.box((sx * 0.07, -0.178, 1.2), (0.06, 0.012, 0.46), shade(gi, 0.78), rot=(0, sx * 0.42, 0))
+    mb.box((0, 0, 0.79), (0.68, 0.38, 0.14), gi)
+
+
+def _belt(mb, col):
+    mb.box((0, 0, 0.9), (0.68, 0.385, 0.08), col)
+    mb.box((0, -0.2, 0.9), (0.1, 0.03, 0.09), shade(col, 1.25))
+    for sx in (-1, 1):
+        mb.box((sx * 0.045, -0.2, 0.79), (0.05, 0.015, 0.2), col, rot=(0, sx * 0.25, 0))
+
+
+def _headband(mb, col):
+    mb.rbox((0, 0.0, 1.9), (HEAD_W + 0.04, 0.56, 0.08), col, radius=0.015)
+    for sx in (-1, 1):
+        mb.box((sx * 0.06, 0.32, 1.84), (0.06, 0.1, 0.2), col, rot=(0.3, sx * 0.3, 0))
+
+
+def _trophy(mb, x):
+    mb.cyl((x, -0.01, HAND_Z - 0.12), 0.08, 0.06, GOLD, segs=8)
+    mb.cyl((x, -0.01, HAND_Z - 0.2), 0.03, 0.12, GOLD, segs=6)
+    mb.cyl((x, -0.01, HAND_Z - 0.38), 0.17, 0.26, GOLD, segs=10, radius2=0.1)
+    for sx in (-1, 1):
+        mb.box((x + sx * 0.19, -0.01, HAND_Z - 0.36), (0.05, 0.03, 0.14), GOLD)
+    mb.ball((x, -0.01, HAND_Z - 0.52), 0.05, "#FFF3B0", subdiv=1, mat=1)
 
 
 def _helmet(mb, look):
@@ -711,6 +756,12 @@ def build_character(look, name="Cast", collection=None, variant=0, props=(), out
         props = set(props or ()) | SQUIRE_PROPS
         if "banner" in props:
             props.discard("pennant")
+    if outfit in KARATE:
+        gi, belt, band = KARATE[outfit]
+        look.update({"shirt_style": "tshirt", "shirt_color": gi, "pants_color": gi})
+        if look["accessory"] in ("cap", "beanie", "cowboy_hat", "crown", "headphones", "bowtie", "camera", "sword"):
+            look["accessory"] = "none"
+        props = set(props or ()) | {"gi", "belt:" + belt, "headband:" + band}
     if outfit == "mtb":
         look["shirt_style"] = "hoodie"
         if look["accessory"] in ("cap", "beanie", "cowboy_hat", "crown", "headphones", "bowtie", "camera", "sword"):
@@ -737,6 +788,9 @@ def build_character(look, name="Cast", collection=None, variant=0, props=(), out
     _accessory_head(hair, look["accessory"], look)
     if "helmet" in props:
         _helmet(hair, look)
+    for pr in props:
+        if pr.startswith("headband:"):
+            _headband(hair, pr[9:])
     if hair.bm.verts:
         attach(rig, "head", hair, name + ".hair", collection, outline=OUT)
     else:
@@ -772,6 +826,11 @@ def build_character(look, name="Cast", collection=None, variant=0, props=(), out
         _y_logo(torso)
     if "windbreaker" in props:
         _windbreaker(torso, look)
+    if "gi" in props:
+        _gi(torso, look["shirt_color"])
+    for pr in props:
+        if pr.startswith("belt:"):
+            _belt(torso, pr[5:])
     if "tabard" in props:
         _tabard(torso)
     if "satchel" in props:
@@ -796,7 +855,9 @@ def build_character(look, name="Cast", collection=None, variant=0, props=(), out
             _banner(arm)
         if "gloves" in props:
             _glove(arm, x)
-        if side == "R" and "horns" in props:
+        if side == "R" and "trophy" in props:
+            _trophy(arm, x)
+        if side == "L" and "horns" in props:
             _horns(arm, x, GLOVE if "gloves" in props else look["skin_tone"])
         if side == "L" and "laptop" in props:
             _laptop(arm)

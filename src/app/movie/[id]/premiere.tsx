@@ -9,6 +9,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '../../../../convex/_generated/api';
 import type { Id } from '../../../../convex/_generated/dataModel';
+import { RemixPrice, useRemixGate } from '@/components/remix-gate';
 import { BigButton, Pill } from '@/components/ui';
 import { GENRE_COLORS, library, type GenreId } from '@/library';
 import { colors, type } from '@/theme';
@@ -18,6 +19,7 @@ export default function Premiere() {
   const router = useRouter();
   const movie = useQuery(api.movies.get, { movieId: id });
   const post = useMutation(api.movies.postToFeed);
+  const gate = useRemixGate(id);
   const [posting, setPosting] = useState(false);
   const [muted, setMuted] = useState(false);
   const titleCard = useRef(new Animated.Value(1)).current;
@@ -130,9 +132,10 @@ export default function Premiere() {
           ) : (
             <Text style={type.small}>🔒 Private — the star didn't OK posting.</Text>
           )}
+          <RemixPrice movieId={id} />
           <View style={styles.row}>
             <View style={{ flex: 1 }}>
-              <BigButton testID="remix" variant="secondary" icon="🔁" label="Remix" onPress={() => router.push({ pathname: '/movie/[id]/remix', params: { id } })} />
+              <BigButton testID="remix" variant="secondary" icon={gate.locked ? '🔓' : '🔁'} label={gate.locked ? `Remix · $${gate.access!.price}` : 'Remix'} loading={gate.busy} onPress={gate.open} />
             </View>
             <View style={{ flex: 1 }}>
               <BigButton testID="replay" variant="secondary" icon="▶️" label="Replay" onPress={replay} />

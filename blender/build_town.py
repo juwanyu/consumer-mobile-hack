@@ -19,7 +19,7 @@ sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 import castlib  # noqa: E402
 from castlib import MeshBuilder  # noqa: E402
 
-TOWN_VERSION = 7
+TOWN_VERSION = 9
 
 CHAR_MARKS = {
     "center": (0.0, 0.0, 0.0),
@@ -700,7 +700,93 @@ def loc_mountain_trail(mb, coll):
     mb.box((-1.35, 6.0, 0.7), (0.06, 26.4, 0.06), "#6B4A2B")
 
 
+def shoji(mb, x, y, w, h, z0=0.0, rot=0.0, glow=False):
+    """Paper screen: lit paper panel with a dark wooden lattice (wall along X when rot=0, along Y when rot=pi/2)."""
+    import math as _m
+    c, s = _m.cos(rot), _m.sin(rot)
+
+    def at(u, v):
+        return (x + u * c, y + u * s, z0 + v)
+    mb.box(at(0, h / 2), (w, 0.06, h) if rot == 0 else (0.06, w, h), "#FFE2B0" if glow else "#F3E9D2", mat=1 if glow else 0)
+    cols, rows = max(2, int(w / 0.6)), max(3, int(h / 0.6))
+    for k in range(cols + 1):
+        u = -w / 2 + k * w / cols
+        mb.box(at(u, h / 2), (0.06, 0.1, h) if rot == 0 else (0.1, 0.06, h), "#4A2E1A")
+    for k in range(rows + 1):
+        v = k * h / rows
+        mb.box(at(0, v), (w, 0.1, 0.05) if rot == 0 else (0.1, w, 0.05), "#4A2E1A")
+
+
+def loc_dojo(mb, coll):
+    """Wooden dojo at sunset: plank floor, glowing paper screens, scroll alcove, bonsai, staff rack, lanterns."""
+    for k in range(-9, 10):
+        mb.box((k * 0.8, 1.0, -0.05), (0.78, 16, 0.1), "#B07A45" if k % 2 else "#A06C3B")
+    mb.box((0, 1.0, -0.12), (16, 16, 0.1), "#6B4423")
+    for x in (-5.4, -1.8, 1.8, 5.4):
+        shoji(mb, x, 6.0, 3.4, 3.6, glow=True)
+    for y in (-2.5, 1.0, 4.5):
+        shoji(mb, -7.2, y, 3.4, 3.6, rot=math.pi / 2, glow=True)
+        shoji(mb, 7.2, y, 3.4, 3.6, rot=math.pi / 2)
+    for x in (-7.2, -3.6, 3.6, 7.2):
+        mb.box((x, 6.0, 1.9), (0.3, 0.3, 3.8), "#4A2E1A")
+    mb.box((0, 6.0, 3.75), (15, 0.35, 0.3), "#4A2E1A")
+    for sx in (-1, 1):
+        mb.box((sx * 7.2, 1.0, 3.75), (0.35, 11, 0.3), "#4A2E1A")
+    mb.box((0, 5.55, 0.25), (3.0, 0.8, 0.5), "#5B3A1E")
+    mb.box((0, 5.9, 2.0), (0.9, 0.04, 2.0), "#EDE3CC")
+    for k in range(4):
+        mb.box((0.0 + (k % 2) * 0.08 - 0.04, 5.86, 2.5 - k * 0.32), (0.12 + 0.05 * (k % 3), 0.02, 0.18), "#1A1214",
+               rot=(0, 0.3 * (k % 2) - 0.15, 0))
+    mb.cyl((0.9, 5.5, 0.62), 0.2, 0.25, "#3E5C76", segs=8)
+    mb.cyl((0.9, 5.5, 0.95), 0.05, 0.5, "#5B3A1E", segs=5, rot=(0, 0.25, 0))
+    for (bx, bz, br) in ((0.75, 1.25, 0.24), (1.1, 1.15, 0.2), (0.95, 1.4, 0.18)):
+        mb.ball((bx, 5.5, bz), br, "#3A6B40", subdiv=1, scale=(1.3, 1, 0.7))
+    mb.box((-5.2, 5.55, 1.2), (2.2, 0.3, 0.12), "#4A2E1A")
+    mb.box((-5.2, 5.55, 0.4), (2.2, 0.3, 0.12), "#4A2E1A")
+    for k in range(5):
+        mb.cyl((-6.1 + k * 0.45, 5.45, 1.1), 0.035, 2.0, "#C9A26B", segs=6)
+    for x in (-4.5, 4.5):
+        mb.box((x, 3.0, 3.1), (0.02, 0.02, 0.7), "#1A1214")
+        mb.cyl((x, 3.0, 2.6), 0.22, 0.45, "#FF8F3F", segs=8, mat=1)
+    mb.box((0, 0.3, 0.005), (3.6, 3.6, 0.02), "#C8A27A")
+
+
+def loc_tournament_arena(mb, coll):
+    """Tournament mat under spotlights with tiered bleachers (crowd instanced on top by the renderer)."""
+    mb.box((0, 2.0, -0.1), (40, 40, 0.2), "#1D2033")
+    mb.box((0, 0.5, 0.06), (7.0, 7.0, 0.12), "#C1121F")
+    mb.box((0, 0.5, 0.075), (6.0, 6.0, 0.12), "#1E5AA8")
+    for sx in (-1, 1):
+        mb.box((sx * 0.9, 0.5, 0.14), (0.1, 0.6, 0.01), "#FFFFFF")
+    mb.box((0, 0.5, 0.135), (2.6, 2.6, 0.005), "#3A78C8")
+    for row in range(4):
+        mb.box((0, 7.6 + row * 1.2, 0.25 * (row + 1)), (20, 1.2, 0.5 * (row + 1)), ("#3C4157", "#343950")[row % 2])
+        mb.box((0, 7.0 + row * 1.2, 0.5 * (row + 1) + 0.02), (20, 0.06, 0.04), "#F2C14E")
+    for sx in (-1, 1):
+        mb.box((sx * 10.5, 9.4, 1.5), (1.0, 5.0, 3.0), "#2A2E42")
+    mb.box((0, 13.0, 4.0), (24, 0.4, 8.0), "#14162A")
+    mb.box((0, 12.7, 5.6), (10, 0.1, 1.6), "#F2C14E", mat=1)
+    mb.box((0, 12.6, 5.6), (9.6, 0.1, 1.3), "#14162A")
+    mb.box((0, 4.0, 7.5), (16, 0.3, 0.3), "#555A70")
+    for x in (-6, -2, 2, 6):
+        mb.box((x, 4.0, 7.15), (0.5, 0.5, 0.5), "#22242E")
+        mb.cyl((x, 3.9, 6.88), 0.18, 0.05, "#FFF6D8", segs=10, mat=1)
+    import bpy as _bpy
+    for k, x in enumerate((-3.0, 3.0)):
+        ld = _bpy.data.lights.new(f"tournament_arena.spot{k}", "SPOT")
+        ld.energy = 1800
+        ld.spot_size = 0.9
+        ld.color = (1.0, 0.95, 0.85)
+        ld.use_shadow = False
+        lo = _bpy.data.objects.new(f"tournament_arena.spot{k}", ld)
+        lo.location = (x, -1.0, 7.0)
+        lo.rotation_euler = castlib.look_at_rotation(Vector((x, -1.0, 7.0)), Vector((0, 0.5, 0)))
+        coll.objects.link(lo)
+
+
 MOODS = {
+    "dojo": dict(sky="#F4A261", sun_color="#FFB37A", sun_energy=3.4, sun_elev=14, sun_az=60, ambient=0.95),
+    "tournament_arena": dict(sky="#20233A", sun_color="#C9D6FF", sun_energy=2.2, sun_elev=55, sun_az=-20, ambient=0.75),
     "mountain_trail": dict(sky="#F5B971", sun_color="#FFD49A", sun_energy=4.2, sun_elev=20, sun_az=-55, ambient=0.95),
     "main_street": dict(sky="#8ECDF7", sun_color="#FFF4E0", sun_energy=4.0, sun_elev=50, sun_az=-35, ambient=1.0),
     "bank": dict(sky="#9AD3F7", sun_color="#FFF4E0", sun_energy=4.0, sun_elev=55, sun_az=30, ambient=1.0),
@@ -725,7 +811,7 @@ BUILDERS = {
     "cafe": loc_cafe, "kaiju_city": loc_kaiju_city, "saloon": loc_saloon,
     "summoning_room": loc_summoning_room,
     "yc_hq": loc_yc_hq, "capy_castle": loc_capy_castle, "castle_wall": loc_castle_wall,
-    "mountain_trail": loc_mountain_trail,
+    "mountain_trail": loc_mountain_trail, "dojo": loc_dojo, "tournament_arena": loc_tournament_arena,
 }
 
 

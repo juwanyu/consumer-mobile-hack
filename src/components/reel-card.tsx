@@ -11,6 +11,7 @@ import { api } from '../../convex/_generated/api';
 import type { Id } from '../../convex/_generated/dataModel';
 import type { Look } from '../../convex/looks';
 import { Avatar } from '@/components/avatar';
+import { useRemixGate } from '@/components/remix-gate';
 import { GENRE_COLORS, library, type GenreId } from '@/library';
 import { useLocalIds } from '@/local';
 import { useMyId } from '@/me';
@@ -54,6 +55,7 @@ type Props = {
 
 export function ReelCard({ item, active, height, bottomInset, muted, onToggleMute, onComments, onSend }: Props) {
   const router = useRouter();
+  const gateHook = useRemixGate(item._id);
   const like = useMutation(api.movies.like);
   const follow = useMutation(api.social.toggleFollow);
   const me = useMyId();
@@ -124,6 +126,7 @@ export function ReelCard({ item, active, height, bottomInset, muted, onToggleMut
   };
 
   const credits = item.cast.map((c) => `${c.name} as ${c.role}`).join(' · ');
+  const gate = gateHook;
 
   return (
     <View style={{ height, backgroundColor: '#000' }}>
@@ -138,12 +141,7 @@ export function ReelCard({ item, active, height, bottomInset, muted, onToggleMut
       <View style={[styles.rail, { bottom: bottomInset + 110 }]}>
         <RailButton testID="like" icon={isLiked ? 'heart.fill' : 'heart'} tint={isLiked ? colors.red : colors.text} label={compact(likeCount)} onPress={() => toggleLike()} />
         <RailButton testID="comments" icon="bubble.right" label={compact(item.commentCount)} onPress={onComments} />
-        <RailButton
-          testID="remix"
-          icon="arrow.2.squarepath"
-          label={compact(item.remixCount)}
-          onPress={() => router.push({ pathname: '/movie/[id]/remix', params: { id: item._id } })}
-        />
+        <RailButton testID="remix" icon={gate.locked ? 'lock.open.fill' : 'arrow.2.squarepath'} tint={gate.locked ? colors.yellow : colors.text} label={gate.locked ? `$${gate.access!.price}` : compact(item.remixCount)} onPress={gate.open} />
         <RailButton testID="send" icon="paperplane" label={compact(item.shareCount)} onPress={onSend} />
         <RailButton
           testID="save"

@@ -70,6 +70,17 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
           <Stat n={profile.stats.likes} label="likes" />
         </View>
       </View>
+      {profile.earnings.remixes > 0 ? (
+        <View style={styles.earn}>
+          <Text style={{ fontSize: 26 }}>💸</Text>
+          <View style={{ flex: 1 }}>
+            <Text style={styles.earnTitle}>
+              ${Math.round(profile.earnings.dollars).toLocaleString()} from {profile.earnings.remixes.toLocaleString()} remixes
+            </Text>
+            <Text style={styles.earnSub}>Paid remixes through Whop</Text>
+          </View>
+        </View>
+      ) : null}
       {editing ? (
         <View style={{ gap: 8 }}>
           <TextInput value={name} onChangeText={setName} placeholder="Name" placeholderTextColor={colors.faint} style={styles.input} />
@@ -232,6 +243,9 @@ const styles = StyleSheet.create({
   tile: { flex: 1, maxWidth: '33%', aspectRatio: 0.62, borderRadius: 6, alignItems: 'center', justifyContent: 'flex-end', padding: 6, gap: 4, overflow: 'hidden' },
   tileShade: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 60, backgroundColor: 'rgba(0,0,0,0.45)' },
   tileTitle: { color: colors.text, fontSize: 12, fontWeight: '800', textAlign: 'center' },
+  earn: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 12, borderRadius: 16, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.green },
+  earnTitle: { color: colors.text, fontWeight: '900', fontSize: 16 },
+  earnSub: { color: colors.muted, fontWeight: '700', fontSize: 12 },
   badge: { position: 'absolute', top: 6, left: 6, backgroundColor: colors.pink, borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 },
   badgeText: { color: '#fff', fontSize: 10, fontWeight: '900' },
   tileMeta: { color: colors.text, fontSize: 11, fontWeight: '700', opacity: 0.85 },

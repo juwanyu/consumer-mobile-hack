@@ -1,7 +1,7 @@
-import { useAction, useMutation, useQuery } from 'convex/react';
+import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useEffect, useRef, useState } from 'react';
+import { useRef, useState } from 'react';
 import { Alert, Dimensions, FlatList, Image, KeyboardAvoidingView, Linking, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -182,17 +182,9 @@ function Chat({ crew, header }: { crew: CrewData; header: React.ReactNode }) {
   const router = useRouter();
   const id = useMyId();
   const post = useMutation(api.crews.post);
-  const sync = useAction(api.crews.syncFromWhop);
   const [text, setText] = useState('');
   const list = useRef<FlatList>(null);
   const crewId = crew._id;
-  const onWhop = crew.onWhop;
-  useEffect(() => {
-    if (!onWhop) return;
-    sync({ crewId }).catch(() => {});
-    const timer = setInterval(() => sync({ crewId }).catch(() => {}), 15000);
-    return () => clearInterval(timer);
-  }, [crewId, onWhop, sync]);
   const submit = async () => {
     if (!id || !text.trim()) return;
     Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
@@ -215,7 +207,6 @@ function Chat({ crew, header }: { crew: CrewData; header: React.ReactNode }) {
               <View style={{ flex: 1, gap: 6 }}>
                 <Text style={styles.meta}>
                   {item.authorName}
-                  {item.source === 'whop' ? <Text style={{ color: '#FA4616' }}> · via Whop</Text> : null}
                   <Text style={{ color: colors.faint }}> · {ago(item.at)}</Text>
                 </Text>
                 {item.body ? <Text style={styles.body}>{item.body}</Text> : null}

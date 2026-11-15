@@ -14,6 +14,7 @@ GENRES = {
     "kaiju": dict(bpm=92, root=36, scale=[0, 3, 6, 7, 10], wave="saw", swing=0.0, bass=[0, 0, 0, 6, 0, 0, 3, 6]),
     "fate": dict(bpm=150, root=40, scale=[0, 2, 3, 7, 8, 10], wave="saw", swing=0.0, bass=[0, 0, 8, 8, 5, 5, 7, 7]),
     "mtb": dict(bpm=128, root=40, scale=[0, 3, 5, 7, 10], wave="saw", swing=0.0, bass=[0, 0, 7, 7, 5, 5, 3, 3]),
+    "karate": dict(bpm=140, root=42, scale=[0, 1, 5, 7, 8], wave="square", swing=0.0, bass=[0, 0, 5, 5, 7, 7, 1, 1]),
     "western": dict(bpm=120, root=43, scale=[0, 3, 5, 7, 10], wave="square", swing=0.25, bass=[0, 7, 0, 7, 5, 7, 3, 7]),
 }
 

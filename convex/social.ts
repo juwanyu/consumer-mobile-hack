@@ -1,3 +1,4 @@
+import { earningsFor } from "./remix";
 import { v } from "convex/values";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
@@ -126,6 +127,7 @@ export const profile = query({
       look: await lookFor(ctx, user),
       castMemberId: user.castMemberId ?? null,
       reels,
+      earnings: await earningsFor(ctx, user._id),
       stats: { reels: visible.length, followers: followers.length + (user.followersOffset ?? 0), following: following.length, likes },
       followedByViewer: !!viewerId && followers.some((f) => f.followerId === viewerId),
       isMe,

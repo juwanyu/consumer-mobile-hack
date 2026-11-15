@@ -159,6 +159,22 @@ export default function Coop() {
             </View>
           ) : null}
 
+          {coop.status === 'lobby' && coop.draftId ? (
+            <Pressable
+              testID="open-studio"
+              onPress={() => {
+                Haptics.selectionAsync();
+                router.push({ pathname: '/movie/[id]/reel', params: { id: coop.draftId! } });
+              }}
+              style={styles.studio}>
+              <Text style={{ fontSize: 26 }}>🎞️</Text>
+              <View style={{ flex: 1 }}>
+                <Text style={styles.studioTitle}>Open the shared timeline</Text>
+                <Text style={type.small}>Edit shots, camera and the 🎬 Director together. Changes sync live.</Text>
+              </View>
+              <Text style={{ color: colors.yellow, fontSize: 22, fontWeight: '900' }}>›</Text>
+            </Pressable>
+          ) : null}
           <Text style={styles.section}>Script · everyone writes their own lines</Text>
           {coop.lines.map((line, beat) => {
             const owner = lineOwner(beat);
@@ -230,6 +246,8 @@ const styles = StyleSheet.create({
   claim: { borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 7 },
   claimText: { color: '#000', fontWeight: '900', fontSize: 13 },
   presence: { color: colors.yellow, fontWeight: '800', fontSize: 14, textAlign: 'center' },
+  studio: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.yellow },
+  studioTitle: { color: colors.text, fontWeight: '900', fontSize: 16 },
   section: { color: colors.text, fontSize: 17, fontWeight: '900', marginTop: 4 },
   line: { borderRadius: radius.md, backgroundColor: colors.surface, borderWidth: 1.5, borderColor: colors.border, padding: 12, gap: 8 },
   beatNo: { color: colors.faint, fontSize: 11, fontWeight: '900', letterSpacing: 1 },

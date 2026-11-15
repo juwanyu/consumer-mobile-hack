@@ -1,7 +1,7 @@
 import { v } from "convex/values";
 import { api } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
-import { mutation, query, type QueryCtx } from "./_generated/server";
+import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { ownerCard } from "./movies";
 import { REEL_TEMPLATES } from "./reels";
 
@@ -34,6 +34,41 @@ export function coopSlots(templateId: string) {
 
 export function coopLines(templateId: string) {
   return (REEL_TEMPLATES[templateId]?.beats ?? []).map((b) => b.narration);
+}
+
+async function castFor(ctx: MutationCtx, templateId: string, slots: Doc<"coops">["slots"]) {
+  const template = REEL_TEMPLATES[templateId];
+  const cast = [];
+  for (const slotDef of template?.slots ?? []) {
+    const player = slots.find((s) => s.id === slotDef.id)?.userId;
+    const user = player && (await ctx.db.get(player));
+    if (!user?.castMemberId) continue;
+    cast.push({ castMemberId: user.castMemberId, role: slotDef.role, slot: slotDef.id });
+  }
+  return cast;
+}
+
+export async function makeDraft(ctx: MutationCtx, c: { templateId: string; title: string; createdBy: Id<"users">; slots: Doc<"coops">["slots"]; lines: string[] }) {
+  const template = REEL_TEMPLATES[c.templateId];
+  return await ctx.db.insert("movies", {
+    genre: template.genre,
+    cast: await castFor(ctx, c.templateId, c.slots),
+    story: { title: c.title, logline: template.logline, shots: [] },
+    reel: { templateId: c.templateId, beats: template.beats.map((b, i) => ({ caption: b.caption, narration: c.lines[i] ?? b.narration })) },
+    ownerId: c.createdBy,
+    status: "draft",
+    attempts: 0,
+    okToPost: true,
+    postedToFeed: false,
+  });
+}
+
+async function syncCast(ctx: MutationCtx, c: Doc<"coops">, slots: Doc<"coops">["slots"]) {
+  if (!c.draftId) return;
+  const draft = await ctx.db.get(c.draftId);
+  if (draft?.status !== "draft") return;
+  const cast = await castFor(ctx, c.templateId, slots);
+  if (cast.length) await ctx.db.patch(c.draftId, { cast });
 }
 
 async function shape(ctx: QueryCtx, c: Doc<"coops">, viewerId?: Id<"users">) {
@@ -82,6 +117,7 @@ async function shape(ctx: QueryCtx, c: Doc<"coops">, viewerId?: Id<"users">) {
         }
       : null,
     createdAt: c._creationTime,
+    draftId: c.draftId ?? null,
   };
 }
 
@@ -136,17 +172,10 @@ export const start = mutation({
   handler: async (ctx, { crewId, userId, templateId }) => {
     const template = REEL_TEMPLATES[templateId];
     if (!template) throw new Error("Unknown template");
-    const slots = coopSlots(templateId);
-    slots[0] = { ...slots[0] };
-    return await ctx.db.insert("coops", {
-      crewId,
-      templateId,
-      title: template.title,
-      createdBy: userId,
-      status: "lobby",
-      slots: slots.map((s, i) => (i === 0 ? { ...s, userId, claimedAt: Date.now() } : s)),
-      lines: coopLines(templateId),
-    });
+    const slots = coopSlots(templateId).map((s, i) => (i === 0 ? { ...s, userId, claimedAt: Date.now() } : s));
+    const lines = coopLines(templateId);
+    const draftId = await makeDraft(ctx, { templateId, title: template.title, createdBy: userId, slots, lines });
+    return await ctx.db.insert("coops", { crewId, templateId, title: template.title, createdBy: userId, status: "lobby", slots, lines, draftId });
   },
 });
 
@@ -164,6 +193,7 @@ export const claim = mutation({
       return s;
     });
     await ctx.db.patch(coopId, { slots });
+    await syncCast(ctx, c, slots);
   },
 });
 
@@ -194,6 +224,11 @@ export const setLine = mutation({
     if (owner?.userId !== userId) throw new Error("That line belongs to another player");
     const lines = [...c.lines];
     lines[beat] = text.slice(0, 160);
+    const draft = c.draftId ? await ctx.db.get(c.draftId) : null;
+    if (draft?.reel && draft.status === "draft" && draft.reel.beats[beat]) {
+      const beats = draft.reel.beats.map((b, i) => (i === beat ? { ...b, narration: lines[beat] } : b));
+      await ctx.db.patch(draft._id, { reel: { ...draft.reel, beats } });
+    }
     await ctx.db.patch(coopId, { lines, slots: c.slots.map((s) => (s.userId === userId ? { ...s, editingAt: Date.now() } : s)) });
   },
 });
@@ -204,27 +239,11 @@ export const roll = mutation({
     const c = await ctx.db.get(coopId);
     if (!c || c.status !== "lobby") return c?.movieId ?? null;
     if (c.slots.some((s) => !s.userId)) throw new Error("Every role needs a player first");
-    const template = REEL_TEMPLATES[c.templateId];
-    if (!template) throw new Error("Unknown template");
-    const cast = [];
-    for (const slotDef of template.slots) {
-      const player = c.slots.find((s) => s.id === slotDef.id)?.userId;
-      const user = player && (await ctx.db.get(player));
-      if (!user?.castMemberId) continue;
-      cast.push({ castMemberId: user.castMemberId, role: slotDef.role, slot: slotDef.id });
-    }
+    const cast = await castFor(ctx, c.templateId, c.slots);
     if (!cast.length) throw new Error("The lead needs a finished character");
-    const movieId = await ctx.db.insert("movies", {
-      genre: template.genre,
-      cast,
-      story: { title: c.title, logline: template.logline, shots: [] },
-      reel: { templateId: c.templateId, beats: template.beats.map((b, i) => ({ caption: b.caption, narration: c.lines[i] ?? b.narration })) },
-      ownerId: c.createdBy,
-      status: "draft",
-      attempts: 0,
-      okToPost: true,
-      postedToFeed: true,
-    });
+    const draft = c.draftId ? await ctx.db.get(c.draftId) : null;
+    const movieId = draft?.status === "draft" ? draft._id : await makeDraft(ctx, c);
+    await ctx.db.patch(movieId, { cast, postedToFeed: true });
     await ctx.db.patch(coopId, { status: "rolling", movieId });
     const roller = await ctx.db.get(userId);
     await ctx.db.insert("crewPosts", {
@@ -237,5 +256,38 @@ export const roll = mutation({
     });
     await ctx.scheduler.runAfter(0, api.movies.action, { movieId });
     return movieId;
+  },
+});
+
+export const ping = mutation({
+  args: { movieId: v.id("movies"), userId: v.id("users"), beat: v.number() },
+  handler: async (ctx, { movieId, userId, beat }) => {
+    const row = await ctx.db
+      .query("presence")
+      .withIndex("by_movie_user", (q) => q.eq("movieId", movieId).eq("userId", userId))
+      .first();
+    if (row) await ctx.db.patch(row._id, { beat, at: Date.now() });
+    else await ctx.db.insert("presence", { movieId, userId, beat, at: Date.now() });
+  },
+});
+
+export const presence = query({
+  args: { movieId: v.id("movies"), now: v.number() },
+  handler: async (ctx, { movieId, now }) => {
+    const rows = await ctx.db
+      .query("presence")
+      .withIndex("by_movie_user", (q) => q.eq("movieId", movieId))
+      .collect();
+    const live = rows.filter((r) => now - r.at < 20000);
+    return await Promise.all(live.map(async (r) => ({ beat: r.beat, user: await ownerCard(ctx, r.userId) })));
+  },
+});
+
+export const forDraft = query({
+  args: { movieId: v.id("movies") },
+  handler: async (ctx, { movieId }) => {
+    const all = await ctx.db.query("coops").withIndex("by_status", (q) => q.eq("status", "lobby")).collect();
+    const c = all.find((x) => x.draftId === movieId);
+    return c ? await shape(ctx, c) : null;
   },
 });

@@ -1,5 +1,5 @@
 {
-  "version": 4,
+  "version": 5,
   "render": {
     "width": 720,
     "height": 1280,
@@ -108,6 +108,12 @@
     },
     "mountain_trail": {
       "label": "Mountain Trail"
+    },
+    "dojo": {
+      "label": "Dojo"
+    },
+    "tournament_arena": {
+      "label": "Tournament Arena"
     }
   },
   "character_marks": [
@@ -157,7 +163,13 @@
     "banner",
     "bike_ride",
     "bike_jump",
-    "rock_on"
+    "rock_on",
+    "wax_on",
+    "bow",
+    "taunt",
+    "fight_stance",
+    "crane_kick",
+    "trophy"
   ],
   "genres": {
     "heist": {
@@ -267,6 +279,17 @@
       "default_locations": [
         "mountain_trail"
       ]
+    },
+    "karate": {
+      "label": "Karate",
+      "emoji": "🥋",
+      "roles": [
+        "Fighter"
+      ],
+      "default_locations": [
+        "dojo",
+        "tournament_arena"
+      ]
     }
   },
   "fx": [
@@ -281,7 +304,8 @@
     "shockwave",
     "embers",
     "dust",
-    "slowmo"
+    "slowmo",
+    "crowd"
   ],
   "styles": {
     "cinematic": {
@@ -309,6 +333,23 @@
         "accessory": "sword",
         "vibe": "A knight-king who answers the summons."
       }
+    },
+    "rival": {
+      "name": "The Champ",
+      "role": "Rival",
+      "outfit": "karate_black",
+      "look": {
+        "skin_tone": "#E0AC69",
+        "hair_color": "#2B1B12",
+        "hair_style": "spiky",
+        "facial_hair": "stubble",
+        "glasses": "none",
+        "shirt_color": "#1A1A1D",
+        "shirt_style": "tshirt",
+        "pants_color": "#1A1A1D",
+        "accessory": "none",
+        "vibe": "Reigning champ. Never smiles."
+      }
     }
   },
   "outfits": {
@@ -323,6 +364,14 @@
     "squire": {
       "label": "Squire",
       "description": "Blue tabard with gold trim and a CAPY crest, leather belt, satchel and a pennant on the back, over their own face and hair. Also applied when a cast role is \"Squire\"."
+    },
+    "karate": {
+      "label": "Karate gi",
+      "description": "White gi, black belt and an orange headband over their own face and hair"
+    },
+    "karate_black": {
+      "label": "Black gi",
+      "description": "Black gi, dark red belt and a red headband (the rival's kit)"
     }
   }
 }
