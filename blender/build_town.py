@@ -467,6 +467,59 @@ def loc_saloon(mb, coll):
     mb.ball((-2.5, 2.5, 0.35), 0.4, "#A98467", subdiv=1)
 
 
+def point_light(coll, name, loc, color, energy, radius=0.3, shadow=False):
+    data = bpy.data.lights.new(name, "POINT")
+    data.color = castlib.color(color)[:3]
+    data.energy = energy
+    data.shadow_soft_size = radius
+    obj = bpy.data.objects.new(name, data)
+    data.use_shadow = shadow
+    obj.location = loc
+    coll.objects.link(obj)
+    return obj
+
+
+def loc_summoning_room(mb, coll):
+    random.seed(21)
+    for ix in range(-9, 10):
+        for iy in range(-8, 9):
+            c = random.choice(["#2A2833", "#302D3A", "#26232E", "#34313F"])
+            mb.box((ix * 1.5, iy * 1.5 - 1.0, -0.1), (1.46, 1.46, 0.2), c)
+    mb.box((0, 11.0, 5), (30, 1.0, 10), "#1E1B25")
+    for k in range(-6, 7):
+        for row in range(5):
+            mb.box((k * 2.2 + (row % 2) * 1.1, 10.45, 0.6 + row * 2.0), (2.1, 0.12, 0.08), "#2E2A38")
+    for px in (-7.5, -3.6, 3.6, 7.5):
+        mb.box((px, 9.9, 4.5), (1.3, 1.3, 9), "#3A3645")
+        mb.box((px, 9.9, 0.3), (1.7, 1.7, 0.6), "#433E52")
+        mb.box((px, 9.2, 5.6), (0.9, 0.08, 3.2), "#7A1022")
+        mb.box((px, 9.18, 4.2), (0.9, 0.08, 0.3), "#C9A227")
+    for wx in (-5.5, 0.0, 5.5):
+        mb.box((wx, 10.45, 6.0), (0.7, 0.1, 2.4), "#3F6FD8", mat=1)
+        mb.box((wx, 10.45, 7.3), (0.4, 0.1, 0.3), "#3F6FD8", mat=1)
+    for side in (-1, 1):
+        mb.box((side * 12, 2, 5), (1.0, 20, 10), "#1E1B25")
+    castlib.magic_circle(mb, (0, 0.3, 0.01), 3.3, "#9FD8FF")
+    for k in range(10):
+        a = 2 * math.pi * k / 10 + 0.2
+        cx, cy = 4.3 * math.cos(a), 0.3 + 4.3 * math.sin(a)
+        if cy < -2.0:
+            continue
+        for j in range(random.randint(1, 3)):
+            ox, oy = random.uniform(-0.25, 0.25), random.uniform(-0.25, 0.25)
+            h = random.uniform(0.25, 0.7)
+            mb.cyl((cx + ox, cy + oy, h / 2), 0.07, h, "#EFE6D2", segs=6)
+            mb.ball((cx + ox, cy + oy, h + 0.07), 0.055, "#FFB347", subdiv=1, mat=1)
+    for (cx, cy) in [(-9, 7), (9, 7), (-9.5, 2), (9.5, 2)]:
+        mb.cyl((cx, cy, 0.6), 0.3, 1.2, "#3A3645", segs=8)
+        for j in range(3):
+            mb.cyl((cx - 0.15 + j * 0.15, cy, 1.4), 0.06, 0.4, "#EFE6D2", segs=6)
+            mb.ball((cx - 0.15 + j * 0.15, cy, 1.66), 0.05, "#FFB347", subdiv=1, mat=1)
+    point_light(coll, "summoning_room.circle_light", (0, 0.3, 1.2), "#9FD8FF", 500, 1.0)
+    point_light(coll, "summoning_room.candles_L", (-5, 3, 1.5), "#FFA040", 150, 0.5)
+    point_light(coll, "summoning_room.candles_R", (5, 3, 1.5), "#FFA040", 150, 0.5)
+
+
 MOODS = {
     "main_street": dict(sky="#8ECDF7", sun_color="#FFF4E0", sun_energy=4.0, sun_elev=50, sun_az=-35, ambient=1.0),
     "bank": dict(sky="#9AD3F7", sun_color="#FFF4E0", sun_energy=4.0, sun_elev=55, sun_az=30, ambient=1.0),
@@ -478,6 +531,7 @@ MOODS = {
     "spaceship": dict(sky="#1B263B", sun_color="#E0F2FF", sun_energy=2.6, sun_elev=70, sun_az=0, ambient=0.8),
     "cafe": dict(sky="#FFE8CC", sun_color="#FFD9A0", sun_energy=3.0, sun_elev=50, sun_az=25, ambient=0.9),
     "kaiju_city": dict(sky="#F28F3B", sun_color="#FFC07A", sun_energy=3.2, sun_elev=30, sun_az=35, ambient=0.8),
+    "summoning_room": dict(sky="#07070F", sun_color="#8FB8FF", sun_energy=1.3, sun_elev=65, sun_az=15, ambient=0.55),
     "saloon": dict(sky="#FFB86B", sun_color="#FFD29D", sun_energy=4.0, sun_elev=30, sun_az=-40, ambient=0.9),
 }
 
@@ -485,6 +539,7 @@ BUILDERS = {
     "main_street": loc_main_street, "bank": loc_bank, "park": loc_park, "rooftop": loc_rooftop,
     "alley": loc_alley, "casino": loc_casino, "wasteland": loc_wasteland, "spaceship": loc_spaceship,
     "cafe": loc_cafe, "kaiju_city": loc_kaiju_city, "saloon": loc_saloon,
+    "summoning_room": loc_summoning_room,
 }
 
 

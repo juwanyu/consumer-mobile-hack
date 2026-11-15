@@ -1,0 +1,283 @@
+{
+  "cast": [
+    {
+      "id": "master",
+      "look": {
+        "accessory": "none",
+        "facial_hair": "none",
+        "glasses": "none",
+        "hair_color": "#1E1A1A",
+        "hair_style": "curly",
+        "pants_color": "#111111",
+        "shirt_color": "#2B1D2E",
+        "shirt_style": "jacket",
+        "skin_tone": "#D8A07A",
+        "vibe": "Chill, confident, and ready for a surprise hero cameo."
+      },
+      "name": "Justin Sun",
+      "role": "Master"
+    },
+    {
+      "id": "caster",
+      "look": {
+        "accessory": "cap",
+        "facial_hair": "stubble",
+        "glasses": "round",
+        "hair_color": "#3A2A1F",
+        "hair_style": "curly",
+        "pants_color": "#1E1E1E",
+        "shirt_color": "#F2F2F0",
+        "shirt_style": "tshirt",
+        "skin_tone": "#C58C5A",
+        "vibe": "Quietly confident, artsy, and ready for a surprise cameo."
+      },
+      "name": "Harris",
+      "role": "Caster"
+    },
+    {
+      "id": "npc_saber",
+      "look": {
+        "accessory": "sword",
+        "facial_hair": "none",
+        "glasses": "none",
+        "hair_color": "#F2D16B",
+        "hair_style": "bun",
+        "pants_color": "#2A4FB5",
+        "shirt_color": "#2A4FB5",
+        "shirt_style": "armor",
+        "skin_tone": "#F6D5BE",
+        "vibe": "A knight-king who answers the summons."
+      },
+      "name": "Saber",
+      "npc": true,
+      "role": "Saber"
+    }
+  ],
+  "genre": "fate",
+  "logline": "Unlimited Build Works · powered by Capy",
+  "quality": "draft",
+  "shots": [
+    {
+      "camera": {
+        "mark": "wide",
+        "move": "push_in"
+      },
+      "caption": "The Holy Grail War starts at six.",
+      "characters": [
+        {
+          "action": "summon",
+          "cast_id": "master",
+          "mark": "center"
+        }
+      ],
+      "dialogue": null,
+      "duration_s": 2.8,
+      "fx": "magic_circle",
+      "hud": [
+        {
+          "label": "COMMAND SEALS",
+          "value": "3"
+        }
+      ],
+      "location": "summoning_room",
+      "narration": {
+        "audio_path": null,
+        "audio_url": "https://steady-sturgeon-344.convex.cloud/api/storage/ff41ddef-6a8e-4ef6-8c23-4782b81ea311",
+        "text": "The Grail War starts at six. Justin Sun opens Capy."
+      }
+    },
+    {
+      "camera": {
+        "mark": "low_angle",
+        "move": "dolly_in"
+      },
+      "caption": "“I ask of you… are you my Master?”",
+      "characters": [
+        {
+          "action": "jump",
+          "cast_id": "npc_saber",
+          "mark": "center"
+        },
+        {
+          "action": "scared",
+          "cast_id": "master",
+          "mark": "left"
+        }
+      ],
+      "dialogue": null,
+      "duration_s": 3,
+      "fx": "flash",
+      "hud": [
+        {
+          "label": "COMMAND SEALS",
+          "value": "3"
+        }
+      ],
+      "location": "summoning_room",
+      "narration": {
+        "audio_path": null,
+        "audio_url": "https://steady-sturgeon-344.convex.cloud/api/storage/a2370d4f-72bf-4389-bde4-7b0d69e84250",
+        "text": "A blade. A light. I ask of you... are you my Master?"
+      }
+    },
+    {
+      "camera": {
+        "mark": "medium",
+        "move": "orbit"
+      },
+      "caption": "Harris. Caster class.",
+      "characters": [
+        {
+          "action": "film",
+          "cast_id": "caster",
+          "mark": "center"
+        }
+      ],
+      "dialogue": null,
+      "duration_s": 2.6,
+      "fx": "sparkles",
+      "hud": [
+        {
+          "label": "SERVANTS",
+          "value": "2"
+        }
+      ],
+      "location": "rooftop",
+      "narration": {
+        "audio_path": null,
+        "audio_url": "https://steady-sturgeon-344.convex.cloud/api/storage/3f6eb2d5-1566-4af0-8b1c-a935efdafb19",
+        "text": "Harris. Caster class. His Noble Phantasm? A camera."
+      }
+    },
+    {
+      "camera": {
+        "mark": "closeup",
+        "move": "push_in"
+      },
+      "caption": "First seal: ship it by six.",
+      "characters": [
+        {
+          "action": "point",
+          "cast_id": "master",
+          "mark": "center"
+        }
+      ],
+      "dialogue": null,
+      "duration_s": 2.4,
+      "fx": "speed_lines",
+      "hud": [
+        {
+          "label": "COMMAND SEALS",
+          "value": "2"
+        },
+        {
+          "label": "CAPY AGENTS",
+          "value": "1"
+        }
+      ],
+      "location": "main_street",
+      "narration": {
+        "audio_path": null,
+        "audio_url": "https://steady-sturgeon-344.convex.cloud/api/storage/919c7234-f750-45d9-8bd2-86c9fa1fe168",
+        "text": "First Command Seal. Ship it by six."
+      }
+    },
+    {
+      "camera": {
+        "mark": "wide",
+        "move": "pan"
+      },
+      "caption": "Capy codes. Revyl proves. Convex holds.",
+      "characters": [
+        {
+          "action": "slash",
+          "cast_id": "npc_saber",
+          "mark": "left"
+        },
+        {
+          "action": "film",
+          "cast_id": "caster",
+          "mark": "right"
+        },
+        {
+          "action": "run",
+          "cast_id": "master",
+          "mark": "center"
+        }
+      ],
+      "dialogue": null,
+      "duration_s": 2.6,
+      "fx": "speed_lines",
+      "hud": [
+        {
+          "label": "COMMAND SEALS",
+          "value": "1"
+        },
+        {
+          "label": "CAPY AGENTS",
+          "value": "8"
+        }
+      ],
+      "location": "casino",
+      "narration": {
+        "audio_path": null,
+        "audio_url": "https://steady-sturgeon-344.convex.cloud/api/storage/1a34e06a-3fa6-4737-9eb8-19574934b418",
+        "text": "Capy writes the code. Revyl proves it. Convex holds the line."
+      }
+    },
+    {
+      "camera": {
+        "mark": "low_angle",
+        "move": "shake"
+      },
+      "caption": "EXCALIBUR!",
+      "characters": [
+        {
+          "action": "slash",
+          "cast_id": "npc_saber",
+          "mark": "center"
+        },
+        {
+          "action": "celebrate",
+          "cast_id": "master",
+          "mark": "left"
+        },
+        {
+          "action": "film",
+          "cast_id": "caster",
+          "mark": "right"
+        }
+      ],
+      "dialogue": null,
+      "duration_s": 3,
+      "fx": "excalibur",
+      "hud": [
+        {
+          "label": "COMMAND SEALS",
+          "value": "0"
+        },
+        {
+          "label": "SHIPPED",
+          "value": "1"
+        },
+        {
+          "label": "CAPY AGENTS",
+          "value": "8"
+        }
+      ],
+      "location": "rooftop",
+      "narration": {
+        "audio_path": null,
+        "audio_url": "https://steady-sturgeon-344.convex.cloud/api/storage/20e95872-815d-4213-825a-f93fb3c55e09",
+        "text": "Last seal. Saber... EXCALIBUR!"
+      }
+    }
+  ],
+  "style": "punchy",
+  "title": "FATE/SHIP NIGHT",
+  "version": 2,
+  "voice": {
+    "name": "onyx",
+    "speed": 1.25
+  }
+}

@@ -47,3 +47,21 @@ The script exits non-zero only if even the minimal fallback plan fails to render
 
 EEVEE (`BLENDER_EEVEE`), Standard view transform, no raytracing/GI. Draft: 6 TAA samples, 1 shadow ray at 0.75 resolution, x264 `REALTIME` preset. Final: 24 samples, softer shadows, `GOOD` preset.
 The 3D scene is rendered through a scene strip, so overlays are plain VSE text strips using the bundled Inter font.
+
+## Punchy reel mode (contract v2)
+
+`plan.style: "punchy"` (see `blender/fate_plan.json`) switches the edit to a reel: up to `render.reel_max_shots` shots,
+each `duration_s` clamped to `render.reel_shot_seconds`, extended to narration length + 0.15 s when `narration.audio_path`
+points at a local mp3/wav. Music is ducked to ~30% under narration. Overlays, all VSE strips:
+
+- `hud`: top-left game HUD. Numeric values that change from the previous shot count over the first 0.6 s; labels containing
+  `SEAL` also draw red ❖ glyphs (spent seals stay dark).
+- `caption`: word-pop captions (1-2 words at a time, key word yellow: the one with "!", else the longest).
+- `fx`: `magic_circle` (rotating rune circle + rising motes), `flash` (white flash + wind burst), `sparkles`,
+  `speed_lines` (generated radial-line PNGs, flickered), `excalibur` (golden beam on the sword hand during `slash`, gold screen flash at impact).
+- Last shot: serif title slam (Times New Roman Bold, falls back to Inter) with white flash, the logline, a small
+  "POWERED BY CAPY" line (a trailing "· powered by …" in the logline is moved there) and "Starring A as X · B as Y" (NPCs excluded).
+
+`cast[].npc: true` marks a built-in character; the look is filled from `npcs.<key>`, and a shot that references `npc_<key>`
+adds it even if the cast omits it. Props follow actions: `slash` gives a sword, `film` a shoulder cinema camera, `summon` a red glowing hand.
+Cinematic credits list NPCs as "and Saber as Saber". Draft punchy renders use 4 TAA samples (cinematic stays at 6).

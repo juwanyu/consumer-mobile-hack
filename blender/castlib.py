@@ -144,6 +144,26 @@ class MeshBuilder:
         return obj
 
 
+def magic_circle(mb, center, radius, col, mat=1, runes=True):
+    """Neon ring + hexagram + rune ticks lying flat on the floor."""
+    cx, cy, cz = center
+    for r, segs, w in ((radius, 48, 0.07), (radius * 0.86, 40, 0.05), (radius * 0.34, 20, 0.05)):
+        for k in range(segs):
+            a = 2 * math.pi * k / segs
+            mb.box((cx + r * math.cos(a), cy + r * math.sin(a), cz), (w, 2 * math.pi * r / segs * 1.08, 0.02), col, rot=(0, 0, a), mat=mat)
+    pts = [(cx + radius * 0.84 * math.cos(math.pi / 2 + k * math.pi / 3), cy + radius * 0.84 * math.sin(math.pi / 2 + k * math.pi / 3)) for k in range(6)]
+    for tri in ((0, 2, 4), (1, 3, 5)):
+        for j in range(3):
+            (x0, y0), (x1, y1) = pts[tri[j]], pts[tri[(j + 1) % 3]]
+            length = math.hypot(x1 - x0, y1 - y0)
+            mb.box(((x0 + x1) / 2, (y0 + y1) / 2, cz), (length, 0.045, 0.02), col, rot=(0, 0, math.atan2(y1 - y0, x1 - x0)), mat=mat)
+    if runes:
+        for k in range(16):
+            a = 2 * math.pi * (k + 0.5) / 16
+            r = radius * 0.93
+            mb.box((cx + r * math.cos(a), cy + r * math.sin(a), cz), (0.16 if k % 2 else 0.08, 0.1 if k % 3 else 0.18, 0.02), col, rot=(0, 0, a), mat=mat)
+
+
 def look_at_rotation(eye, target):
     d = Vector(target) - Vector(eye)
     return d.to_track_quat("-Z", "Y").to_euler()

@@ -226,11 +226,70 @@ def pose_sit(t, T):
     return p, 0.0, -0.525 * k
 
 
+def pose_summon(t, T):
+    p, _, _ = pose_idle(t, T)
+    k = _ease(t / 0.4)
+    tremble = 0.05 * math.sin(2 * math.pi * 7 * t) * k
+    _set(p, "arm_R", _arm(0.3 * k, 2.85 * k + tremble, -1))
+    _set(p, "arm_L", _arm(0.45 * k, 0.5 * k, 1))
+    p["head"][0] = -0.3 * k
+    p["torso"][0] = -0.1 * k
+    p["leg_L"][2] = -0.1 * k
+    p["leg_R"][2] = 0.1 * k
+    return p, 0.0, 0.0
+
+
+SLASH_PERIOD = 1.4
+SLASH_RAISED = 0.25
+SLASH_IMPACT = 0.55
+
+
+def pose_slash(t, T):
+    p = _blank()
+    ph = (t % SLASH_PERIOD) / SLASH_PERIOD
+    if ph < SLASH_RAISED:
+        theta = 0.3 + 2.3 * _ease(ph / SLASH_RAISED)
+        swing = 0.0
+    elif ph < 0.4:
+        theta, swing = 2.6, 0.0
+    elif ph < SLASH_IMPACT:
+        a = _ease((ph - 0.4) / (SLASH_IMPACT - 0.4))
+        theta, swing = 2.6 - 2.45 * a, a
+    else:
+        a = _ease((ph - SLASH_IMPACT) / (1 - SLASH_IMPACT))
+        theta, swing = 0.15 + 0.15 * a, 1 - a
+    _set(p, "arm_R", _arm(theta, 0.08, -1))
+    _set(p, "arm_L", _arm(theta * 0.85, -0.3, 1))
+    p["torso"][0] = 0.3 * swing - 0.1 * (1 - swing) * (theta > 2)
+    p["torso"][1] = -0.25 * swing
+    p["head"][0] = -0.1 * swing
+    p["leg_L"][0] = -0.35
+    p["leg_R"][0] = 0.3
+    return p, 0.12 * swing, 0.0
+
+
+def pose_film(t, T):
+    p = _blank()
+    k = _ease(t / 0.3)
+    _set(p, "arm_R", _arm(1.45 * k, 0.05, -1))
+    _set(p, "arm_L", _arm(1.25 * k, -0.4 * k, 1))
+    p["root"][1] = 0.35 * math.sin(2 * math.pi * 0.18 * t)
+    p["head"][2] = 0.14 * k
+    p["head"][0] = 0.05 * k
+    p["torso"][0] = 0.05 * math.sin(2 * math.pi * 0.5 * t)
+    p["leg_L"][2] = -0.07
+    p["leg_R"][2] = 0.07
+    return p, 0.0, 0.0
+
+
 ACTIONS = {
     "idle": pose_idle, "walk": pose_walk, "run": pose_run, "jump": pose_jump, "wave": pose_wave,
     "point": pose_point, "punch": pose_punch, "dance": pose_dance, "celebrate": pose_celebrate,
     "fall": pose_fall, "sneak": pose_sneak, "talk": pose_talk, "scared": pose_scared, "sit": pose_sit,
+    "summon": pose_summon, "slash": pose_slash, "film": pose_film,
 }
+
+ACTION_PROPS = {"slash": "sword", "film": "camera", "summon": "glow"}
 
 
 def supported_actions():

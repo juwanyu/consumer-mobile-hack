@@ -37,6 +37,8 @@ BONES = {
 
 HEAD_Z = 1.61
 FACE_Y = -0.21
+SILVER = "#C9D3DE"
+GOLD = "#E8B931"
 HAT_LIFT = {"afro": 0.22, "mohawk": 0.12, "spiky": 0.1, "bun": 0.06, "curly": 0.05}
 
 
@@ -170,6 +172,15 @@ def _glasses(mb, style):
     mb.box((0, y, z + 0.03), (0.05, 0.02, 0.02), frame)
 
 
+def _saber_hair(mb, col):
+    for sx in (-1, 1):
+        mb.box((sx * 0.2, FACE_Y - 0.02, 1.58), (0.06, 0.06, 0.26), col)
+        mb.box((sx * 0.1, FACE_Y - 0.025, 1.76), (0.12, 0.05, 0.1), col, rot=(0, sx * 0.3, 0))
+    mb.box((0, FACE_Y - 0.03, 1.75), (0.07, 0.05, 0.13), col)
+    mb.box((0.02, -0.05, 1.93), (0.03, 0.12, 0.1), col, rot=(0.6, 0, 0))
+    mb.box((0, 0.17, 1.9), (0.2, 0.05, 0.06), "#1F3A93")
+
+
 def _accessory_head(mb, acc, look):
     lift = HAT_LIFT.get(look["hair_style"], 0.0)
     shirt = look["shirt_color"]
@@ -211,6 +222,10 @@ def _arm(mb, x, look, sleeve):
         mb.box((x, 0, 0.76), (0.33, 0.33, 0.12), skin)
         if look["shirt_style"] == "suit":
             mb.box((x, 0, 0.83), (0.355, 0.355, 0.04), "#F8F9FA")
+        if look["shirt_style"] == "armor":
+            mb.box((x * 1.02, 0, 1.33), (0.43, 0.43, 0.16), SILVER)
+            mb.box((x, 0, 0.88), (0.38, 0.38, 0.17), SILVER)
+            mb.box((x, -0.19, 0.88), (0.12, 0.02, 0.1), GOLD)
     elif sleeve == "short":
         mb.box((x, 0, 1.25), (0.37, 0.37, 0.3), shirt)
         mb.box((x, 0, 0.98), (0.34, 0.34, 0.56), skin)
@@ -247,11 +262,21 @@ def _torso(mb, look):
         for sx in (-1, 1):
             mb.box((sx * 0.25, 0, 1.36), (0.2, 0.36, 0.08), skin)
         mb.box((0, front - 0.002, 1.36), (0.18, 0.01, 0.08), skin)
+    elif style == "armor":
+        mb.cyl((0, 0, 0.47), 0.56, 0.52, shirt, segs=8, radius2=0.4, rot=(0, 0, math.pi / 8))
+        mb.cyl((0, 0, 0.23), 0.565, 0.05, "#F2F2F2", segs=8, rot=(0, 0, math.pi / 8))
+        mb.box((0, front - 0.02, 1.17), (0.62, 0.05, 0.38), SILVER)
+        mb.box((0, front - 0.03, 1.3), (0.48, 0.05, 0.1), "#E3E9F0")
+        mb.box((0, front - 0.05, 1.12), (0.05, 0.02, 0.28), GOLD)
+        mb.box((0, 0.195, 1.17), (0.62, 0.04, 0.38), SILVER)
+        mb.box((0, 0, 0.76), (0.73, 0.38, 0.07), SILVER)
+        mb.box((0, front - 0.03, 0.76), (0.12, 0.03, 0.08), GOLD)
+        mb.box((0, front - 0.002, 1.38), (0.2, 0.01, 0.05), skin)
     elif style == "dress":
         mb.cyl((0, 0, 0.52), 0.52, 0.42, shirt, segs=8, radius2=0.4, rot=(0, 0, math.pi / 8))
         mb.box((0, 0, 0.74), (0.72, 0.37, 0.05), shade(shirt, 0.75))
         mb.box((0, front - 0.002, 1.36), (0.24, 0.01, 0.08), skin)
-    if style != "dress":
+    if style not in ("dress", "armor"):
         mb.box((0, 0, 0.73), (0.71, 0.36, 0.05), "#2B2B2B")
     if look["accessory"] == "bowtie":
         bt = "#C1121F" if style != "suit" else "#111111"
@@ -265,7 +290,35 @@ def _leg(mb, x, look):
         mb.box((x, 0, 0.4), (0.33, 0.33, 0.6), look["skin_tone"])
     else:
         mb.box((x, 0, 0.4), (0.35, 0.35, 0.6), look["pants_color"])
-    mb.box((x, -0.02, 0.06), (0.36, 0.4, 0.12), "#2B2B2B")
+    if look["shirt_style"] == "armor":
+        mb.box((x, -0.02, 0.15), (0.37, 0.41, 0.3), SILVER)
+    else:
+        mb.box((x, -0.02, 0.06), (0.36, 0.4, 0.12), "#2B2B2B")
+
+
+def _sword(mb, x):
+    z = 0.76
+    mb.cyl((x, -0.07, z), 0.035, 0.3, "#1F3A93", segs=6, rot=(math.pi / 2, 0, 0))
+    mb.ball((x, 0.1, z), 0.05, GOLD, subdiv=1)
+    mb.box((x, -0.24, z), (0.07, 0.07, 0.36), GOLD)
+    mb.box((x, -0.24, z), (0.09, 0.09, 0.09), "#2A4FB5")
+    mb.box((x, -0.82, z), (0.035, 1.1, 0.11), "#E6EEF5")
+    mb.box((x, -0.82, z), (0.04, 1.0, 0.03), "#9DB4CC")
+    mb.cyl((x, -1.42, z), 0.055, 0.12, "#E6EEF5", segs=4, radius2=0.0, rot=(math.pi / 2, 0, 0))
+
+
+def _camera_rig(mb):
+    body, x, z = "#1B1B1F", -0.31, 1.56
+    mb.box((x, -0.1, z - 0.13), (0.22, 0.3, 0.05), "#3A3A40")
+    mb.box((x, -0.14, z), (0.2, 0.44, 0.26), body)
+    mb.cyl((x, -0.44, z), 0.085, 0.2, "#2B2B30", segs=10, rot=(math.pi / 2, 0, 0))
+    mb.cyl((x, -0.55, z), 0.065, 0.02, "#5BC0EB", segs=10, rot=(math.pi / 2, 0, 0), mat=1)
+    mb.box((x, -0.58, z), (0.26, 0.05, 0.22), body)
+    mb.box((x, -0.15, z + 0.17), (0.035, 0.32, 0.035), "#3A3A40")
+    mb.box((x + 0.13, -0.27, z + 0.12), (0.02, 0.15, 0.1), "#111111")
+    mb.box((x + 0.141, -0.27, z + 0.12), (0.005, 0.12, 0.08), "#7CFF4F", mat=1)
+    mb.box((x - 0.1, -0.33, z + 0.07), (0.03, 0.03, 0.03), "#FF2020", mat=1)
+    mb.box((x + 0.05, 0.1, z + 0.02), (0.12, 0.08, 0.08), "#2B2B30")
 
 
 def _make_armature(name, collection):
@@ -298,8 +351,8 @@ def _make_armature(name, collection):
     return rig
 
 
-def _attach(rig, bone_name, mb, obj_name, collection):
-    obj = mb.to_object(obj_name, collection, bevel=0.012)
+def attach(rig, bone_name, mb, obj_name, collection, bevel=0.012):
+    obj = mb.to_object(obj_name, collection, bevel=bevel)
     bone = rig.data.bones[bone_name]
     obj.parent = rig
     obj.parent_type = "BONE"
@@ -308,9 +361,11 @@ def _attach(rig, bone_name, mb, obj_name, collection):
     return obj
 
 
-def build_character(look, name="Cast", collection=None, variant=0):
+def build_character(look, name="Cast", collection=None, variant=0, props=()):
+    """props: extra held items for this shot ("sword", "camera", "glow"), on top of look["accessory"]."""
     collection = collection or bpy.context.scene.collection
     look = sanitize_look(look, variant)
+    props = set(props or ()) | {look["accessory"]}
     rig = _make_armature(name, collection)
     rig["look"] = str(look)
 
@@ -321,20 +376,29 @@ def build_character(look, name="Cast", collection=None, variant=0):
     _hair(head, look["hair_style"], look["hair_color"])
     _facial_hair(head, look["facial_hair"], look["hair_color"], look["skin_tone"])
     _glasses(head, look["glasses"])
+    if look["shirt_style"] == "armor" and look["hair_style"] in ("bun", "ponytail", "long"):
+        _saber_hair(head, look["hair_color"])
     _accessory_head(head, look["accessory"], look)
-    _attach(rig, "head", head, name + ".head", collection)
+    attach(rig, "head", head, name + ".head", collection)
 
     torso = MeshBuilder()
     _torso(torso, look)
-    _attach(rig, "torso", torso, name + ".torso", collection)
+    if "camera" in props:
+        _camera_rig(torso)
+    attach(rig, "torso", torso, name + ".torso", collection)
 
     style = look["shirt_style"]
-    sleeve = "full" if style in ("hoodie", "suit", "jacket") else ("none" if style == "tanktop" else "short")
+    sleeve = "full" if style in ("hoodie", "suit", "jacket", "armor") else ("none" if style == "tanktop" else "short")
     for side, x in (("L", 0.525), ("R", -0.525)):
         arm = MeshBuilder()
         _arm(arm, x, look, sleeve)
-        _attach(rig, "arm_" + side, arm, f"{name}.arm_{side}", collection)
+        if side == "R" and "sword" in props:
+            _sword(arm, x)
+        if side == "R" and "glow" in props:
+            arm.ball((x, 0, 0.72), 0.13, "#FF1E3C", subdiv=1, mat=1)
+            arm.box((x, -0.18, 0.86), (0.16, 0.02, 0.16), "#FF1E3C", rot=(0, 0.785, 0), mat=1)
+        attach(rig, "arm_" + side, arm, f"{name}.arm_{side}", collection)
         leg = MeshBuilder()
         _leg(leg, x / 3.0, look)
-        _attach(rig, "leg_" + side, leg, f"{name}.leg_{side}", collection)
+        attach(rig, "leg_" + side, leg, f"{name}.leg_{side}", collection)
     return rig
