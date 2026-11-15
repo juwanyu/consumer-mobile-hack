@@ -152,7 +152,7 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
       <Modal visible={switching} animationType="slide" presentationStyle="pageSheet" onRequestClose={() => setSwitching(false)}>
         <View style={styles.sheet}>
           <Text style={[type.heading, { textAlign: 'center' }]}>Switch account</Text>
-          <ScrollView contentContainerStyle={{ gap: 8, paddingVertical: 12 }}>
+          <ScrollView style={{ flexGrow: 0 }} contentContainerStyle={{ gap: 8, paddingVertical: 12 }}>
             {(people ?? []).filter((p) => p._id !== me).map((p) => (
               <Pressable
                 key={p._id}
@@ -175,10 +175,10 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
               setSwitching(false);
               await newAccount();
             }}
-            style={[styles.action, { backgroundColor: colors.yellow }]}>
+            style={[styles.sheetButton, { backgroundColor: colors.yellow }]}>
             <Text style={[styles.actionText, { color: '#000' }]}>＋ New account</Text>
           </Pressable>
-          <Pressable onPress={() => setSwitching(false)} style={styles.action}>
+          <Pressable testID="switch-cancel" hitSlop={8} onPress={() => setSwitching(false)} style={styles.sheetButton}>
             <Text style={styles.actionText}>Cancel</Text>
           </Pressable>
         </View>
@@ -237,7 +237,8 @@ const SWITCH_HANDLES = ['justinyu', 'justinsun', 'landseer', 'lam'];
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  sheet: { flex: 1, backgroundColor: colors.surface, padding: 18, paddingBottom: 32 },
+  sheet: { flex: 1, backgroundColor: colors.surface, padding: 18, paddingBottom: 32, gap: 10 },
+  sheetButton: { backgroundColor: colors.surfaceHi, borderRadius: radius.sm, paddingVertical: 14, alignItems: 'center' },
   switchRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 10, borderRadius: radius.md, backgroundColor: colors.surfaceHi },
   topRow: { flexDirection: 'row', alignItems: 'center', gap: 12, paddingTop: 6 },
   back: { color: colors.text, fontSize: 34, fontWeight: '300', marginTop: -4 },
