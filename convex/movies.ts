@@ -329,3 +329,10 @@ export const recast = mutation({
     });
   },
 });
+
+export const feature = internalMutation({
+  args: { movieId: v.id("movies"), posted: v.boolean() },
+  handler: async (ctx, { movieId, posted }) => {
+    await ctx.db.patch(movieId, { postedToFeed: posted });
+  },
+});
