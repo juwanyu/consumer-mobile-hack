@@ -2,7 +2,7 @@ import { useMutation, useQuery } from 'convex/react';
 import * as Haptics from 'expo-haptics';
 import { useRouter } from 'expo-router';
 import { useState } from 'react';
-import { FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
+import { Alert, FlatList, Image, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '../../convex/_generated/api';
@@ -157,7 +157,7 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
                 key={p._id}
                 onPress={async () => {
                   setSwitching(false);
-                  await switchAccount(p._id);
+                  await switchAccount(p._id).catch(() => Alert.alert('Account in use', 'That account is signed in on another phone.'));
                 }}
                 style={styles.switchRow}>
                 <Avatar look={p.look} name={p.name} size={44} />

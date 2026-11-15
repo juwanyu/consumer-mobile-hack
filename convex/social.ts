@@ -300,6 +300,7 @@ export const switchAccount = mutation({
   handler: async (ctx, { deviceKey, toUserId }) => {
     const target = await ctx.db.get(toUserId);
     if (!target) throw new Error("No such account");
+    if (target.deviceKey.startsWith("dev_") && target.deviceKey !== deviceKey) throw new Error("That account is signed in on another phone");
     const current = await ctx.db
       .query("users")
       .withIndex("by_device", (q) => q.eq("deviceKey", deviceKey))
