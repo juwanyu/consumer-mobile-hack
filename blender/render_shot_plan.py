@@ -1085,7 +1085,7 @@ def build_scene(plan, progress_file=None, offset_frames=0):
             hit = f0 + int(CRANE_HIT * shot_frames)
             if duel and ch is not kicker:
                 samples = apply_action(rig, ch["action"], f0, hit - f0, travel=travel, speed=speed)
-                apply_action(rig, "fall", hit, f0 + shot_frames - hit, travel=1.0, speed=speed)
+                apply_action(rig, "fall", hit, f0 + shot_frames - hit, travel=0.4, speed=speed)
             else:
                 samples = apply_action(rig, ch["action"], f0, shot_frames, travel=travel, speed=speed, mounted=mounted)
             if mounted:
@@ -1177,7 +1177,12 @@ def build_scene(plan, progress_file=None, offset_frames=0):
             focus = next((r.location.copy() for c, r, _ in shot_rigs if c["cast_id"] == spk), None) \
                 or next((r.location.copy() for c, r, _ in shot_rigs if c["mark"] == "center"), positions[0])
             focus.z = 0.0
+            if len(positions) > 1 and any(c["action"] == "crane_kick" for c, _, _ in shot_rigs):
+                positions.append(max(positions, key=lambda p: p.x) + Vector((1.6, 0.0, 0.0)))
             eye, target, lens = frame_subjects(shot["camera"]["mark"], positions, focus)
+            if plan.get("style") == "punchy" and i == nshots - 1 and any(c["action"] == "trophy" for c, _, _ in shot_rigs):
+                lens = 24.0
+                eye, target = focus + Vector((0.0, -8.0, 3.7)), focus + Vector((0.0, 0.0, 3.7))
             move = shot["camera"]["move"]
             if loc == "castle_wall" and "excalibur" in fx:
                 focus = focus if focus is not None else positions[0]
