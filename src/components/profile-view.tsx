@@ -75,9 +75,12 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
           <Text style={{ fontSize: 26 }}>💸</Text>
           <View style={{ flex: 1 }}>
             <Text style={styles.earnTitle}>
-              ${Math.round(profile.earnings.dollars).toLocaleString()} from {profile.earnings.remixes.toLocaleString()} remixes
+              ${Math.round(profile.earnings.dollars).toLocaleString()} remixes
+              {profile.earnings.sponsors ? ` · $${Math.round(profile.earnings.sponsors).toLocaleString()} sponsors` : ''}
             </Text>
-            <Text style={styles.earnSub}>Paid remixes through Whop</Text>
+            <Text style={styles.earnSub}>
+              {profile.earnings.remixes.toLocaleString()} paid remixes{profile.earnings.sponsors ? ' + brand placements' : ''} · paid out through Whop
+            </Text>
           </View>
         </View>
       ) : null}

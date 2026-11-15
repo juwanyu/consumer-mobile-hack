@@ -53,6 +53,8 @@ export default defineSchema({
     remixPrice: v.optional(v.number()),
     whopPlanId: v.optional(v.string()),
     paidRemixes: v.optional(v.number()),
+    sponsor: v.optional(v.string()),
+    sponsorDollars: v.optional(v.number()),
     remixCount: v.optional(v.number()),
     pinnedAt: v.optional(v.number()),
     attempts: v.number(),

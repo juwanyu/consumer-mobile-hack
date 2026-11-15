@@ -196,14 +196,16 @@ export async function earningsFor(ctx: { db: import("./_generated/server").Query
     .collect();
   let dollars = 0;
   let remixes = 0;
+  let sponsors = 0;
   for (const m of movies) {
     const price = m.remixPrice ?? 0;
     const real = await ctx.db
       .query("remixLicenses")
       .withIndex("by_movie_user", (q) => q.eq("movieId", m._id))
       .collect();
+    sponsors += m.sponsorDollars ?? 0;
     remixes += (m.paidRemixes ?? 0) + real.length;
     dollars += (m.paidRemixes ?? 0) * price + real.reduce((s, r) => s + r.amount, 0);
   }
-  return { dollars, remixes };
+  return { dollars, remixes, sponsors };
 }

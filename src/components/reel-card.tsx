@@ -32,6 +32,7 @@ export type ReelItem = {
   shareCount: number;
   views: number;
   remixCount: number;
+  sponsor?: string | null;
   owner: { _id: Id<'users'>; handle: string; name: string; look: Look | null } | null;
   cast: { name: string; role: string; look: Look | null }[];
 };
@@ -178,7 +179,10 @@ export function ReelCard({ item, active, height, bottomInset, muted, onToggleMut
         <Text style={styles.title} numberOfLines={1}>
           {item.title}
         </Text>
-        <Text style={styles.views}>▶ {compact(item.views)} views</Text>
+        <Text style={styles.views}>
+          ▶ {compact(item.views)} views
+          {item.sponsor ? <Text style={styles.sponsor}>{'   '}Sponsored · {item.sponsor}</Text> : null}
+        </Text>
         <Text style={styles.caption} numberOfLines={2}>
           <Text style={{ color: accent, fontWeight: '900' }}>
             {genre?.emoji ?? '🎬'} {item.style}
@@ -230,6 +234,7 @@ const styles = StyleSheet.create({
   handle: { color: colors.text, fontSize: 16, fontWeight: '800', ...shadow },
   follow: { borderWidth: 1.5, borderColor: 'rgba(255,255,255,0.85)', borderRadius: 8, paddingHorizontal: 10, paddingVertical: 3 },
   followText: { color: colors.text, fontSize: 13, fontWeight: '800' },
+  sponsor: { color: colors.yellow, fontSize: 13, fontWeight: '900' },
   title: { color: colors.text, fontSize: 20, fontWeight: '900', letterSpacing: -0.3, ...shadow },
   views: { color: 'rgba(255,255,255,0.85)', fontSize: 13, fontWeight: '800', marginTop: -2, ...shadow },
   caption: { color: colors.text, fontSize: 14, fontWeight: '600', lineHeight: 19, ...shadow },

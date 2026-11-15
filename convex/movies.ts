@@ -241,6 +241,7 @@ export async function feedItem(ctx: QueryCtx, m: Doc<"movies">) {
     shareCount: m.shareCount ?? 0,
     views: m.views ?? (m.likes ?? 0) * 23 + 412,
     remixCount: m.remixCount ?? 0,
+    sponsor: m.sponsor ?? null,
     _id: m._id,
     genre: m.genre,
     title: m.story.title,
