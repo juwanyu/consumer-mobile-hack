@@ -610,3 +610,26 @@ export const planTitle = internalMutation({
     await ctx.db.patch(movieId, { plan: { ...movie.plan, title, ...(logline ? { logline } : {}) } });
   },
 });
+
+export const scrubText = internalMutation({
+  args: { from: v.string(), to: v.string() },
+  handler: async (ctx, { from, to }) => {
+    let n = 0;
+    const fix = (o: unknown): unknown => {
+      if (typeof o === "string") return o.split(from).join(to);
+      if (Array.isArray(o)) return o.map(fix);
+      if (o && typeof o === "object") return Object.fromEntries(Object.entries(o).map(([k, x]) => [k, fix(x)]));
+      return o;
+    };
+    for (const table of ["movies", "coops"] as const) {
+      for (const doc of await ctx.db.query(table).collect()) {
+        if (!JSON.stringify(doc).includes(from)) continue;
+        const { _id, _creationTime, ...rest } = doc;
+        await ctx.db.replace(_id, fix(rest) as never);
+        n++;
+      }
+    }
+    return n;
+  },
+});
+

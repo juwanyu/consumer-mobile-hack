@@ -1,5 +1,5 @@
 import { httpRouter } from "convex/server";
-import { internal } from "./_generated/api";
+import { api, internal } from "./_generated/api";
 import { httpAction } from "./_generated/server";
 
 const http = httpRouter();
@@ -53,6 +53,25 @@ http.route({
       }
     }
     return new Response("ok");
+  }),
+});
+
+http.route({
+  path: "/whop/return",
+  method: "GET",
+  handler: httpAction(async (ctx, req) => {
+    const params = new URL(req.url).searchParams;
+    const movieId = params.get("movie") ?? "";
+    const userId = params.get("user") ?? "";
+    let result = { unlocked: false } as { unlocked: boolean };
+    for (let i = 0; i < 5 && !result.unlocked; i++) {
+      if (i) await new Promise((r) => setTimeout(r, 1500));
+      result = await ctx.runAction(api.remix.verify, { movieId, userId });
+    }
+    const title = result.unlocked ? "Remix unlocked ✓" : "Payment pending";
+    const sub = result.unlocked ? "Whop confirmed your payment. Tap Done to start your remix." : "Whop hasn't confirmed the payment yet. Tap Done and Cast will keep checking.";
+    const html = `<!doctype html><meta name="viewport" content="width=device-width,initial-scale=1"><body style="margin:0;height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#000;color:#fff;font-family:-apple-system,sans-serif;text-align:center;padding:24px;box-sizing:border-box"><div style="font-size:64px">${result.unlocked ? "🎬" : "⏳"}</div><h1 style="font-size:28px;margin:12px 0">${title}</h1><p style="color:#aaa;font-size:17px;max-width:320px">${sub}</p></body>`;
+    return new Response(html, { headers: { "Content-Type": "text/html; charset=utf-8" } });
   }),
 });
 

@@ -19,7 +19,7 @@ export const COOP_ROLES: Record<string, Array<{ id: string; role: string; emoji:
     { id: "narrator", role: "Narrator", emoji: "🎙️" },
   ],
   karate: [
-    { id: "master", role: "Karate Kid", emoji: "🥋" },
+    { id: "master", role: "Dojo champ", emoji: "🥋" },
     { id: "rival", role: "Rival", emoji: "😈" },
     { id: "sensei", role: "Sensei", emoji: "🧓" },
     { id: "narrator", role: "Narrator", emoji: "🎙️" },

@@ -39,6 +39,17 @@ export const ensureUser = mutation({
   },
 });
 
+export const byDevice = query({
+  args: { deviceKey: v.string() },
+  handler: async (ctx, { deviceKey }) => {
+    const user = await ctx.db
+      .query("users")
+      .withIndex("by_device", (q) => q.eq("deviceKey", deviceKey))
+      .first();
+    return user?._id ?? null;
+  },
+});
+
 export const me = query({
   args: { userId: v.optional(v.id("users")) },
   handler: async (ctx, { userId }) => {

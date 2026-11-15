@@ -16,6 +16,7 @@ export function useRemixGate(movieId: Id<'movies'>) {
   const access = useQuery(api.remix.access, { movieId, userId: me ?? undefined });
   const checkout = useAction(api.remix.checkout);
   const demoUnlock = useMutation(api.remix.demoUnlock);
+  const verify = useAction(api.remix.verify);
   const [busy, setBusy] = useState(false);
   const locked = !!access && !access.unlocked;
   const label = locked ? `🔓 Remix · $${access!.price}` : 'Remix';
@@ -29,16 +30,28 @@ export function useRemixGate(movieId: Id<'movies'>) {
       const res = await checkout({ movieId, userId: me });
       if (res.url) {
         await WebBrowser.openBrowserAsync(res.url, { presentationStyle: WebBrowser.WebBrowserPresentationStyle.PAGE_SHEET });
+        for (let i = 0; i < 4; i++) {
+          const v = await verify({ movieId, userId: me }).catch(() => ({ unlocked: false }));
+          if (v.unlocked) {
+            Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+            return go();
+          }
+          await new Promise((r) => setTimeout(r, 1500));
+        }
+        return;
+      }
+      if (res.reason === 'whop_error') {
+        Alert.alert('Checkout unavailable', 'Whop could not open a checkout right now. Try again in a moment.');
         return;
       }
       if (res.demo) {
         Alert.alert(
           `Remix license · $${access!.price}`,
-          'Demo checkout: Whop sandbox keys are not connected on this build, so no money moves. The creator gets paid through Whop when it is live.',
+          'Checkout runs through Whop, and the creator gets paid every time someone remixes. This is a demo purchase, so no money moves.',
           [
             { text: 'Cancel', style: 'cancel' },
             {
-              text: `Simulate $${access!.price} purchase`,
+              text: `Pay $${access!.price} with Whop`,
               onPress: async () => {
                 await demoUnlock({ movieId, userId: me });
                 Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
@@ -80,7 +93,7 @@ export function RemixPrice({ movieId }: { movieId: Id<'movies'> }) {
           </Pressable>
         ))}
       </View>
-      {!access.live && access.price > 0 ? <Text style={styles.note}>Demo mode until Whop sandbox keys are added.</Text> : null}
+      {access.price > 0 ? <Text style={styles.note}>Paid out through Whop.</Text> : null}
     </View>
   );
 }

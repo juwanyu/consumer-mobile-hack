@@ -7,9 +7,16 @@ import type { Id } from '../convex/_generated/dataModel';
 
 let cached: Id<'users'> | null = null;
 let pending: Promise<Id<'users'>> | null = null;
+let device: string | null = null;
 const listeners = new Set<(id: Id<'users'>) => void>();
 
 async function deviceKey() {
+  if (device) return device;
+  device = await readDeviceKey();
+  return device;
+}
+
+async function readDeviceKey() {
   const existing = await SecureStore.getItemAsync('cast.device').catch(() => null);
   if (existing) return existing;
   const key = `dev_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 10)}`;
@@ -20,6 +27,17 @@ async function deviceKey() {
 export function useMyId() {
   const ensure = useMutation(api.social.ensureUser);
   const [id, setId] = useState<Id<'users'> | null>(cached);
+  const [key, setKey] = useState<string | null>(device);
+  const owner = useQuery(api.social.byDevice, key ? { deviceKey: key } : 'skip');
+  useEffect(() => {
+    if (!key) deviceKey().then(setKey);
+  }, [key]);
+  useEffect(() => {
+    if (!owner || owner === cached) return;
+    cached = owner;
+    pending = Promise.resolve(owner);
+    listeners.forEach((fn) => fn(owner));
+  }, [owner]);
   useEffect(() => {
     listeners.add(setId);
     if (cached) {

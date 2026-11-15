@@ -7,7 +7,7 @@ export const PRICES = [0, 1, 3, 5];
 
 function whop() {
   const key = process.env.WHOP_API_KEY;
-  if (!key) return null;
+  if (!key || process.env.WHOP_LIVE !== "1") return null;
   const base = process.env.WHOP_ENV === "production" ? "https://api.whop.com/api/v1" : "https://sandbox-api.whop.com/api/v1";
   return {
     base,
@@ -28,7 +28,7 @@ export const access = query({
         .query("remixLicenses")
         .withIndex("by_movie_user", (q) => q.eq("movieId", movieId).eq("userId", userId))
         .first());
-    return { price, owner, unlocked: price === 0 || owner || !!license, live: !!process.env.WHOP_API_KEY };
+    return { price, owner, unlocked: price === 0 || owner || !!license, live: !!process.env.WHOP_API_KEY && process.env.WHOP_LIVE === "1" };
   },
 });
 
@@ -67,7 +67,7 @@ async function createCheckout(api: NonNullable<ReturnType<typeof whop>>, body: R
 
 function variantFor(title: string, price: number) {
   return {
-    title: ("Remix license · " + title).slice(0, 60),
+    title: ("Remix · " + title).slice(0, 30),
     description: "Put yourself in this Cast reel.",
     billing_type: "one_time",
     initial_price: price,
@@ -102,9 +102,10 @@ export const checkout = action({
     if (!api) return { url: null, demo: true, reason: "no_key" };
     try {
       const metadata = { cast_movie_id: movieId, cast_user_id: userId };
+      const redirect_url = process.env.CONVEX_SITE_URL + "/whop/return?movie=" + movieId + "&user=" + userId;
       const body = info.planId
-        ? { mode: "payment", variant_id: info.planId, metadata, redirect_url: "consumermobilehack://movie/" + movieId + "/remix" }
-        : { mode: "payment", variant: variantFor(info.title, info.price), metadata, redirect_url: "consumermobilehack://movie/" + movieId + "/remix" };
+        ? { mode: "payment", variant_id: info.planId, metadata, redirect_url }
+        : { mode: "payment", variant: variantFor(info.title, info.price), metadata, redirect_url };
       const config = await createCheckout(api, body);
       if (!info.planId && config.variant?.id) await ctx.runMutation(internal.remix.savePlan, { movieId, planId: config.variant.id });
       return { url: config.purchase_url, demo: false };
@@ -112,6 +113,50 @@ export const checkout = action({
       console.error("Whop checkout failed", e instanceof Error ? e.message : e);
       return { url: null, demo: true, reason: "whop_error" };
     }
+  },
+});
+
+type WhopPayment = {
+  id: string;
+  status: string;
+  metadata?: Record<string, string> | null;
+  total?: { amount: string } | number | null;
+  usd_total?: { amount: string } | number | null;
+};
+
+function dollars(m: WhopPayment["total"]) {
+  if (m == null) return 0;
+  return typeof m === "number" ? m : Number(m.amount) || 0;
+}
+
+export const verify = action({
+  args: { movieId: v.string(), userId: v.string() },
+  handler: async (ctx, { movieId, userId }): Promise<{ unlocked: boolean; paymentId?: string; reason?: string }> => {
+    const api = whop();
+    if (!api) return { unlocked: false, reason: "no_key" };
+    const mid = await ctx.runQuery(internal.remix.planIdFor, { movieId });
+    if (!mid?.planId) return { unlocked: false, reason: "no_plan" };
+    const url = api.base + "/payments?status=paid&first=50&variant_id=" + encodeURIComponent(mid.planId);
+    const res = await fetch(url, { headers: api.headers });
+    const text = await res.text();
+    if (!res.ok) {
+      console.error("Whop payments lookup failed", res.status, text.slice(0, 300));
+      return { unlocked: false, reason: "whop_" + res.status };
+    }
+    const list = (JSON.parse(text) as { data: WhopPayment[] }).data ?? [];
+    const hit = list.find((p) => p.metadata?.cast_movie_id === movieId && p.metadata?.cast_user_id === userId);
+    if (!hit) return { unlocked: false, reason: "not_paid" };
+    await ctx.runMutation(internal.remix.recordPayment, { movieId, userId, paymentId: hit.id, amount: dollars(hit.usd_total ?? hit.total) });
+    return { unlocked: true, paymentId: hit.id };
+  },
+});
+
+export const planIdFor = internalQuery({
+  args: { movieId: v.string() },
+  handler: async (ctx, { movieId }) => {
+    const id = ctx.db.normalizeId("movies", movieId);
+    const m = id && (await ctx.db.get(id));
+    return m ? { planId: m.whopPlanId ?? null } : null;
   },
 });
 

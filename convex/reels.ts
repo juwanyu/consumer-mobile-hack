@@ -481,7 +481,7 @@ export const REEL_TEMPLATES: Record<string, ReelTemplate> = {
     slots: [
       {
         id: "master",
-        role: "the new Karate Kid · presented by Whop",
+        role: "the dojo's new champion",
         required: true,
         outfit: "karate"
       }
