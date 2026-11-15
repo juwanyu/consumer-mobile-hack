@@ -1,12 +1,12 @@
 {
   "expo": {
-    "name": "consumer-mobile-hack",
+    "name": "Cast",
     "slug": "consumer-mobile-hack",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "consumermobilehack",
-    "userInterfaceStyle": "automatic",
+    "userInterfaceStyle": "dark",
     "ios": {
       "icon": "./assets/expo.icon",
       "bundleIdentifier": "com.justinyu.consumermobilehack"
@@ -35,7 +35,19 @@
         }
       ],
       "expo-video",
-      "expo-secure-store"
+      "expo-secure-store",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Cast uses the camera to snap one photo that becomes your blocky movie character. The photo is deleted right after."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "Cast lets you pick one photo that becomes your blocky movie character. The photo is deleted right after."
+        }
+      ]
     ],
     "experiments": {
       "typedRoutes": true,
