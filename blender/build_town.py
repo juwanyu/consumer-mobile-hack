@@ -1,0 +1,546 @@
+"""Build the procedural blocky town: one collection per location in shared/assetLibrary.json.
+
+Usage: blender -b --factory-startup -P blender/build_town.py [-- out.blend]
+Each collection <loc> holds geometry plus empties:
+  <loc>.mark.<character_mark>  where characters stand (facing -Y, toward the cameras)
+  <loc>.cam.<camera_mark>      camera position; custom prop "target" is the look-at point
+Lighting mood lives in collection custom props (sky, sun_color, sun_energy, sun_elev, sun_az, ambient).
+"""
+import math
+import os
+import random
+import sys
+import zlib
+
+import bpy
+from mathutils import Vector
+
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+import castlib  # noqa: E402
+from castlib import MeshBuilder  # noqa: E402
+
+CHAR_MARKS = {
+    "center": (0.0, 0.0, 0.0),
+    "left": (-1.7, 0.4, 0.0),
+    "right": (1.7, 0.4, 0.0),
+    "back": (0.0, 2.6, 0.0),
+}
+CAM_MARKS = {
+    "wide": ((0.0, -12.0, 3.2), (0.0, 1.5, 2.4), 26),
+    "medium": ((0.0, -4.6, 1.7), (0.0, 0.0, 1.15), 38),
+    "closeup": ((0.0, -3.0, 1.65), (0.0, 0.0, 1.35), 30),
+    "low_angle": ((1.1, -3.6, 0.3), (0.0, 0.0, 1.45), 24),
+    "overhead": ((0.0, -3.4, 8.5), (0.0, 0.4, 0.4), 30),
+}
+
+WHITE = "#F4F1EA"
+DARK = "#2B2D42"
+
+
+# ---------------------------------------------------------------- props
+
+def building(mb, x, y, w, d, h, col, win="#9AD1F5", lit=False, roof=None, door=True):
+    mb.box((x, y + d / 2, h / 2), (w, d, h), col)
+    mb.box((x, y + d / 2, h + 0.15), (w + 0.3, d + 0.3, 0.3), roof or castlib.shade(col, 0.7))
+    cols = max(1, int(w / 1.6))
+    rows = max(1, int((h - 1.2) / 1.8))
+    for r in range(rows):
+        for c in range(cols):
+            wx = x - w / 2 + (c + 0.5) * w / cols
+            wz = 2.0 + r * 1.8
+            if wz > h - 0.6:
+                continue
+            if door and r == 0 and c == cols // 2:
+                continue
+            on = lit and random.random() < 0.6
+            mb.box((wx, y - 0.05, wz), (0.8, 0.12, 0.9), "#FFE58A" if on else win, mat=1 if on else 0)
+    if door:
+        mb.box((x, y - 0.05, 0.9), (1.0, 0.14, 1.8), castlib.shade(col, 0.45))
+
+
+def tree(mb, x, y, s=1.0, leaf="#3FA34D"):
+    mb.box((x, y, 0.9 * s), (0.4 * s, 0.4 * s, 1.8 * s), "#7A4E2D")
+    mb.box((x, y, 2.3 * s), (1.8 * s, 1.8 * s, 1.4 * s), leaf)
+    mb.box((x, y, 3.2 * s), (1.1 * s, 1.1 * s, 0.8 * s), castlib.shade(leaf, 1.15))
+
+
+def lamp(mb, x, y, h=3.6, glow="#FFE9A8"):
+    mb.box((x, y, h / 2), (0.16, 0.16, h), DARK)
+    mb.box((x, y - 0.3, h), (0.12, 0.7, 0.12), DARK)
+    mb.box((x, y - 0.6, h - 0.15), (0.35, 0.35, 0.25), glow, mat=1)
+
+
+def car(mb, x, y, col, rot=0.0):
+    ca, sa = math.cos(rot), math.sin(rot)
+
+    def p(dx, dy, z):
+        return (x + dx * ca - dy * sa, y + dx * sa + dy * ca, z)
+    mb.box(p(0, 0, 0.6), (3.4, 1.6, 0.7), col, rot=(0, 0, rot))
+    mb.box(p(-0.2, 0, 1.2), (1.9, 1.45, 0.6), castlib.shade(col, 0.9), rot=(0, 0, rot))
+    mb.box(p(-0.2, -0.74, 1.2), (1.6, 0.05, 0.45), "#A8DDF7", rot=(0, 0, rot))
+    for dx in (-1.1, 1.1):
+        for dy in (-0.8, 0.8):
+            mb.cyl(p(dx, dy, 0.38), 0.38, 0.3, "#222222", segs=8, rot=(math.pi / 2, 0, rot))
+    mb.box(p(1.72, -0.5, 0.65), (0.05, 0.3, 0.2), "#FFF6C2", rot=(0, 0, rot), mat=1)
+    mb.box(p(1.72, 0.5, 0.65), (0.05, 0.3, 0.2), "#FFF6C2", rot=(0, 0, rot), mat=1)
+
+
+def blocky_figure(mb, x, y, skin, shirt, pants, arms_forward=False, rot=0.0):
+    mb.box((x - 0.2, y, 0.35), (0.34, 0.34, 0.7), pants, rot=(0, 0, rot))
+    mb.box((x + 0.2, y, 0.35), (0.34, 0.34, 0.7), pants, rot=(0, 0, rot))
+    mb.box((x, y, 1.05), (0.75, 0.38, 0.7), shirt, rot=(0, 0, rot))
+    mb.box((x, y, 1.62), (0.42, 0.42, 0.42), skin, rot=(0, 0, rot))
+    mb.box((x - 0.09, y - 0.215, 1.66), (0.07, 0.02, 0.07), "#E0201B", mat=1)
+    mb.box((x + 0.09, y - 0.215, 1.66), (0.07, 0.02, 0.07), "#E0201B", mat=1)
+    for sx in (-0.55, 0.55):
+        if arms_forward:
+            mb.box((x + sx * 0.97, y - 0.35, 1.3), (0.32, 0.7, 0.32), skin)
+        else:
+            mb.box((x + sx * 0.97, y, 1.05), (0.32, 0.32, 0.7), skin)
+
+
+def text_object(name, body, collection, loc, size, col, rot=(math.pi / 2, 0, 0), neon=False, extrude=0.05):
+    """Text is converted to a vertex-colored mesh so it shares the plastic/neon materials."""
+    curve = bpy.data.curves.new(name, "FONT")
+    curve.body = body
+    curve.size = size
+    curve.extrude = extrude
+    curve.align_x = "CENTER"
+    curve.align_y = "CENTER"
+    tmp = bpy.data.objects.new(name + "_tmp", curve)
+    bpy.context.scene.collection.objects.link(tmp)
+    deps = bpy.context.evaluated_depsgraph_get()
+    mesh = bpy.data.meshes.new_from_object(tmp.evaluated_get(deps))
+    bpy.data.objects.remove(tmp)
+    bpy.data.curves.remove(curve)
+    attr = mesh.color_attributes.new("Col", "FLOAT_COLOR", "CORNER")
+    rgba = castlib.color(col)
+    for d in attr.data:
+        d.color = rgba
+    plastic, neon_mat = castlib.materials()
+    mesh.materials.append(plastic)
+    mesh.materials.append(neon_mat)
+    for poly in mesh.polygons:
+        poly.material_index = 1 if neon else 0
+    obj = bpy.data.objects.new(name, mesh)
+    obj.location = loc
+    obj.rotation_euler = rot
+    collection.objects.link(obj)
+    return obj
+
+
+def ground(mb, col, w=70, d=70, y0=-20):
+    mb.box((0, y0 + d / 2, -0.1), (w, d, 0.2), col)
+
+
+# ---------------------------------------------------------------- locations
+
+def loc_main_street(mb, coll):
+    ground(mb, "#7BC86C")
+    mb.box((0, 0, 0.0), (70, 6.0, 0.06), "#4A4E5A")
+    for x in range(-30, 31, 4):
+        mb.box((x, -0.0, 0.04), (1.6, 0.18, 0.02), "#F7D046")
+    mb.box((0, 4.5, 0.08), (70, 3.0, 0.16), "#D9D4C7")
+    mb.box((0, -4.5, 0.08), (70, 3.0, 0.16), "#D9D4C7")
+    palette = ["#F28482", "#84A59D", "#F6BD60", "#7FB7BE", "#B5838D", "#90BE6D", "#F9844A"]
+    x = -24
+    i = 0
+    while x < 24:
+        w = random.choice([4, 5, 6])
+        h = random.choice([5, 6.5, 8, 10])
+        building(mb, x + w / 2, 6.2, w - 0.3, 5, h, palette[i % len(palette)])
+        x += w
+        i += 1
+    for lx in (-6, 6):
+        lamp(mb, lx, 3.4)
+    tree(mb, -9.5, 4.2, 0.9)
+    tree(mb, 9.5, 4.2, 0.9)
+    car(mb, -5.5, 1.4, "#E63946")
+    car(mb, 7.5, -1.4, "#3A86FF", rot=math.pi)
+    mb.box((3.5, 3.8, 0.7), (0.8, 0.8, 1.4), "#3A86FF")
+
+
+def loc_bank(mb, coll):
+    ground(mb, "#9CC47A")
+    mb.box((0, 0, 0.0), (70, 7.0, 0.06), "#4A4E5A")
+    mb.box((0, 4.0, 0.08), (70, 2.0, 0.16), "#D9D4C7")
+    mb.box((0, 9, 3.5), (16, 8, 7), "#ECE6D6")
+    for i in range(3):
+        mb.box((0, 4.6 + i * 0.35, 0.15 + i * 0.3), (12 - i * 0.6, 0.6, 0.3), "#D8D1BE")
+    for cx in (-5, -3, -1, 1, 3, 5):
+        mb.cyl((cx, 4.6, 3.6), 0.38, 5.4, WHITE, segs=10)
+        mb.box((cx, 4.6, 6.4), (1.0, 1.0, 0.3), WHITE)
+    mb.box((0, 4.9, 7.0), (14, 1.6, 0.8), "#E4DCC6")
+    for k, w in enumerate((13.0, 10.0, 7.0, 4.0)):
+        mb.box((0, 5.2, 7.65 + k * 0.45), (w, 1.4, 0.45), "#E4DCC6")
+    mb.box((0, 5.1, 2.0), (2.4, 0.3, 3.6), "#5B4636")
+    mb.cyl((0, 4.92, 2.0), 0.9, 0.1, "#C9A227", segs=12, rot=(math.pi / 2, 0, 0))
+    text_object("bank_sign", "BANK", coll, (0, 4.05, 7.0), 0.75, "#C9A227")
+    for gx in (-7.5, 7.5):
+        mb.box((gx, 4.0, 0.7), (1.0, 1.0, 1.4), "#ECE6D6")
+        mb.box((gx, 4.0, 1.6), (0.7, 0.7, 0.5), "#C9A227")
+    car(mb, 6.5, -1.6, "#111111", rot=math.pi)
+    building(mb, -15, 6, 9, 6, 9, "#B8C0FF")
+    building(mb, 15, 6, 9, 6, 11, "#FFC8DD")
+    lamp(mb, -4.0, 3.2)
+    lamp(mb, 4.0, 3.2)
+
+
+def loc_park(mb, coll):
+    ground(mb, "#6CC551")
+    mb.box((0, 4, 0.02), (3, 40, 0.04), "#E9D8A6")
+    mb.box((0, -1.5, 0.02), (40, 2.5, 0.04), "#E9D8A6")
+    random.seed(7)
+    for (tx, ty, s) in [(-6, 5, 1.2), (-9, 10, 1.4), (6.5, 6, 1.1), (10, 11, 1.5), (-12, 2, 1.0),
+                        (12, 2.5, 1.0), (-4, 14, 1.3), (4.5, 15, 1.2), (0, 20, 1.6)]:
+        tree(mb, tx, ty, s, random.choice(["#3FA34D", "#52B788", "#2D6A4F", "#80B918"]))
+    mb.box((-4.0, 2.4, 0.45), (2.4, 0.6, 0.1), "#A0522D")
+    mb.box((-4.0, 2.7, 0.8), (2.4, 0.1, 0.6), "#A0522D")
+    for bx in (-5.0, -3.0):
+        mb.box((bx, 2.5, 0.2), (0.12, 0.5, 0.4), DARK)
+    mb.cyl((4.5, 3.5, 0.3), 1.6, 0.6, "#CED4DA", segs=12)
+    mb.cyl((4.5, 3.5, 0.62), 1.4, 0.06, "#4CC9F0", segs=12)
+    mb.cyl((4.5, 3.5, 1.1), 0.25, 1.4, "#CED4DA", segs=8)
+    mb.cyl((4.5, 3.5, 1.85), 0.7, 0.2, "#CED4DA", segs=8)
+    mb.cyl((-7, 9, 0.03), 3.0, 0.06, "#4CC9F0", segs=12)
+    for i in range(40):
+        fx, fy = random.uniform(-14, 14), random.uniform(1.5, 16)
+        if abs(fx) < 2:
+            continue
+        mb.box((fx, fy, 0.15), (0.25, 0.25, 0.25), random.choice(["#FF5D8F", "#FFD166", "#F8F9FA", "#C77DFF"]))
+    lamp(mb, 2.5, 1.0)
+
+
+def loc_rooftop(mb, coll):
+    mb.box((0, 4, -0.2), (16, 20, 0.4), "#A9B4C9")
+    mb.cyl((-2.5, 7.5, 0.01), 2.2, 0.02, "#FFD166", segs=16)
+    mb.cyl((-2.5, 7.5, 0.02), 1.9, 0.02, "#A9B4C9", segs=16)
+    mb.box((-3.1, 7.5, 0.03), (0.25, 1.6, 0.02), "#FFD166")
+    mb.box((-1.9, 7.5, 0.03), (0.25, 1.6, 0.02), "#FFD166")
+    mb.box((-2.5, 7.5, 0.03), (1.2, 0.25, 0.02), "#FFD166")
+    for k in range(9):
+        mb.ball((-7.6 + k * 1.9, 13.6, 2.4 - 0.3 * math.sin(k * 0.9)), 0.12, ["#FF5D8F", "#FFD166", "#4CC9F0"][k % 3], mat=1)
+    mb.box((0, 13.6, 2.3), (16, 0.03, 0.03), DARK)
+    for x in (-8, 8):
+        mb.box((x, 4, 0.4), (0.4, 20, 0.8), "#6C757D")
+    mb.box((0, 14, 0.4), (16, 0.4, 0.8), "#6C757D")
+    mb.box((-5, 6, 0.6), (2.0, 1.4, 1.2), "#ADB5BD")
+    mb.box((-5, 5.25, 0.6), (1.2, 0.1, 0.8), "#6C757D")
+    mb.box((5.5, 8, 2.5), (0.2, 0.2, 5), "#5C4033")
+    mb.cyl((5.5, 9, 4.6), 1.5, 2.6, "#A0522D", segs=10)
+    mb.cyl((5.5, 9, 6.3), 1.6, 0.9, "#6B3E26", segs=10, radius2=0.1)
+    mb.box((3, 3.5, 1.0), (1.2, 1.2, 2.0), "#CED4DA")
+    mb.box((3, 2.85, 1.3), (0.6, 0.08, 1.4), "#495057")
+    mb.box((-6, 12, 3.0), (0.15, 0.15, 6), "#ADB5BD")
+    mb.box((-6, 12, 6.0), (1.2, 0.1, 0.1), "#E63946", mat=1)
+
+
+def loc_alley(mb, coll):
+    ground(mb, "#4B4B55", w=14, d=50)
+    for side in (-1, 1):
+        x = side * 3.8
+        mb.box((x + side * 1.0, 10, 6), (2.0, 40, 12), "#9C4A3C")
+        for yy in range(-6, 26, 2):
+            for zz in range(1, 12, 2):
+                mb.box((x - side * 0.02, yy + (zz % 4) * 0.25, zz), (0.06, 1.7, 0.08), "#7D3B2F")
+        for yy in (2, 9, 16):
+            mb.box((x - side * 0.05, yy, 3.5), (0.12, 1.1, 1.3), "#2E3A59")
+            mb.box((x - side * 0.05, yy, 6.5), (0.12, 1.1, 1.3), "#FFD166" if yy == 9 else "#2E3A59",
+                   mat=1 if yy == 9 else 0)
+        for zz in (3.0, 6.0):
+            mb.box((x - side * 0.8, 9, zz - 0.8), (1.4, 3.0, 0.08), "#343A40")
+            mb.box((x - side * 1.45, 9, zz - 0.3), (0.06, 3.0, 0.9), "#343A40")
+    mb.box((-2.3, 4, 0.7), (1.6, 2.6, 1.4), "#2D6A4F")
+    mb.box((-2.3, 4, 1.45), (1.7, 2.7, 0.12), "#1B4332")
+    for (bx, by) in [(2.4, 3.0), (2.8, 3.8), (2.2, 4.4)]:
+        mb.ball((bx, by, 0.35), 0.45, "#212529", subdiv=1)
+    mb.box((2.6, 7.5, 0.5), (0.8, 0.8, 1.0), "#6C757D")
+    mb.box((0, 25, 6), (8, 1, 12), "#5E2F25")
+    mb.box((-2.7, 6, 3.2), (0.6, 0.15, 0.3), "#FFE9A8", mat=1)
+    for i in range(6):
+        mb.box((random.uniform(-2, 2), random.uniform(1, 12), 0.02), (random.uniform(0.6, 1.5), random.uniform(0.6, 1.5), 0.02), "#2F3E46")
+
+
+def loc_casino(mb, coll):
+    mb.box((0, 8, -0.1), (40, 30, 0.2), "#7B1E3A")
+    for i in range(-16, 17, 4):
+        mb.box((i, 8, 0.01), (0.3, 30, 0.02), "#C9A227")
+    mb.box((0, 14, 5), (40, 0.4, 10), "#1A1033")
+    for side in (-1, 1):
+        mb.box((side * 12, 8, 5), (0.4, 14, 10), "#1A1033")
+    text_object("casino_sign", "CASINO", coll, (0, 13.7, 6.3), 2.2, "#FF2E97", neon=True)
+    mb.box((0, 13.75, 6.3), (10.5, 0.1, 0.12), "#00F5FF", mat=1)
+    mb.box((0, 13.75, 7.8), (10.5, 0.1, 0.12), "#00F5FF", mat=1)
+    neon_cols = ["#FF2E97", "#00F5FF", "#FFE600", "#7CFF4F"]
+    for i, sx in enumerate((-8, -5.5, 5.5, 8)):
+        mb.box((sx, 10.5, 1.1), (1.6, 1.2, 2.2), "#2B2D42")
+        mb.box((sx, 9.85, 1.5), (1.2, 0.08, 0.7), neon_cols[i], mat=1)
+        mb.box((sx, 10.5, 2.4), (1.6, 1.2, 0.35), neon_cols[(i + 1) % 4], mat=1)
+        mb.box((sx + 0.9, 10.5, 1.3), (0.1, 0.1, 0.8), "#C0C0C0")
+    for tx in (-4.5, 4.5):
+        mb.cyl((tx, 5.5, 0.4), 0.3, 0.8, "#3D2817", segs=8)
+        mb.cyl((tx, 5.5, 0.85), 1.6, 0.12, "#1E7B3B", segs=16)
+        mb.cyl((tx, 5.5, 0.8), 1.75, 0.14, "#5C3A21", segs=16)
+        for k in range(5):
+            mb.cyl((tx - 0.6 + k * 0.3, 5.0, 0.95 + 0.0), 0.12, 0.08 + k * 0.05, neon_cols[k % 4], segs=8)
+    for side in (-1, 1):
+        mb.box((side * 11.7, 8, 3.5), (0.1, 13, 0.12), "#FF2E97", mat=1)
+        mb.box((side * 11.7, 8, 7.0), (0.1, 13, 0.12), "#00F5FF", mat=1)
+    mb.box((0, 13.6, 2.2), (2.6, 0.2, 4.4), "#C9A227")
+    mb.cyl((0, 13.45, 2.2), 1.0, 0.15, "#E9C46A", segs=12, rot=(math.pi / 2, 0, 0))
+    for (cx, cy) in [(-1.5, -1.0), (1.2, -1.6), (2.0, 2.0)]:
+        mb.cyl((cx, cy, 0.03), 0.18, 0.06, random.choice(neon_cols), segs=8)
+
+
+def loc_wasteland(mb, coll):
+    ground(mb, "#9C6644")
+    random.seed(3)
+    for i in range(30):
+        mb.box((random.uniform(-25, 25), random.uniform(-2, 30), 0.0),
+               (random.uniform(1, 4), random.uniform(1, 4), random.uniform(0.1, 0.4)), "#7F5539")
+    for (bx, by, w, h) in [(-11, 14, 6, 9), (-3, 20, 5, 13), (8, 16, 7, 7), (15, 24, 6, 12), (-18, 22, 6, 6)]:
+        mb.box((bx, by, h / 2), (w, 4, h), "#6D6875")
+        for k in range(4):
+            mb.box((bx + random.uniform(-w / 2, w / 2), by - 2.05, random.uniform(1, h - 1)), (0.9, 0.12, 1.0), "#1B1B1E")
+        mb.box((bx + w / 3, by, h + 0.6), (w / 3, 4, 1.2), "#6D6875")
+    car(mb, -5.5, 3.5, "#5E503F", rot=0.4)
+    for tx, ty in [(6, 4), (-9, 7), (11, 9)]:
+        mb.box((tx, ty, 1.4), (0.3, 0.3, 2.8), "#3E2C1C")
+        mb.box((tx + 0.4, ty, 2.2), (0.8, 0.2, 0.2), "#3E2C1C", rot=(0, 0.5, 0))
+        mb.box((tx - 0.35, ty, 1.8), (0.7, 0.2, 0.2), "#3E2C1C", rot=(0, -0.6, 0))
+    for (zx, zy, rot) in [(-4, 6, 0.2), (4.5, 7, -0.3), (-1.5, 10, 0.0), (8, 11, -0.5), (-8, 11, 0.4)]:
+        blocky_figure(mb, zx, zy, "#7FB069", random.choice(["#4A4E69", "#6B705C", "#9A8C98"]), "#3D405B", arms_forward=True, rot=rot)
+    for i in range(6):
+        mb.box((random.uniform(-14, 14), random.uniform(3, 14), 0.25), (0.5, 0.5, 0.5), "#B08968")
+    mb.box((3, 3, 0.45), (0.7, 0.7, 0.9), "#E63946")
+    mb.box((3, 3, 0.95), (0.4, 0.4, 0.1), "#222222")
+
+
+def loc_spaceship(mb, coll):
+    mb.box((0, 5, -0.1), (16, 22, 0.2), "#ADB5BD")
+    for i in range(-7, 8, 2):
+        mb.box((i, 5, 0.01), (0.06, 22, 0.02), "#6C757D")
+    mb.box((0, 12, 6), (16, 0.4, 12), "#DEE2E6")
+    mb.box((0, 11.75, 4.0), (11, 0.1, 5.0), "#05060F")
+    random.seed(5)
+    for i in range(70):
+        mb.box((random.uniform(-5.3, 5.3), 11.65, random.uniform(1.7, 6.3)), (0.05, 0.02, 0.05), "#FFFFFF", mat=1)
+    mb.ball((3.0, 11.6, 5.0), 1.2, "#F77F00", subdiv=2, scale=(1, 0.1, 1))
+    mb.ball((-3.5, 11.6, 2.6), 0.5, "#4CC9F0", subdiv=2, scale=(1, 0.1, 1))
+    for side in (-1, 1):
+        mb.box((side * 8, 5, 4), (0.4, 22, 8), "#CED4DA")
+        for yy in (0, 4, 8):
+            mb.box((side * 7.75, yy, 2.5), (0.1, 2.6, 1.5), "#0B132B")
+            mb.box((side * 7.7, yy, 2.5), (0.05, 2.2, 1.1), "#3A86FF", mat=1)
+            mb.box((side * 7.7, yy + 1.5, 4.5), (0.05, 0.2, 2.5), "#E63946", mat=1)
+        mb.box((side * 7.8, 5, 0.3), (0.2, 22, 0.08), "#00F5FF", mat=1)
+    for cx in (-4.0, 4.0):
+        mb.box((cx, 7.6, 0.5), (3.4, 1.4, 1.0), "#495057")
+        mb.box((cx, 7.3, 1.05), (3.2, 1.0, 0.1), "#212529", rot=(-0.3, 0, 0))
+        for k in range(6):
+            mb.box((cx - 1.2 + k * 0.48, 7.0, 1.12), (0.25, 0.25, 0.06), ["#E63946", "#FFD166", "#06D6A0"][k % 3], mat=1, rot=(-0.3, 0, 0))
+        mb.box((cx, 8.1, 1.6), (2.0, 0.1, 1.0), "#0B132B", rot=(0.2, 0, 0))
+        mb.box((cx, 8.05, 1.6), (1.8, 0.05, 0.85), "#06D6A0", rot=(0.2, 0, 0), mat=1)
+    mb.box((0, 4.5, 0.25), (1.4, 1.4, 0.5), "#6C757D")
+    mb.box((0, 5.3, 1.2), (1.4, 0.3, 1.6), "#E63946")
+    mb.box((0, 4.5, 0.6), (1.3, 1.3, 0.2), "#E63946")
+    for z, y in ((9.5, 4), (9.5, 8)):
+        mb.box((0, y, z), (16, 0.6, 0.6), "#CED4DA")
+        mb.box((0, y - 0.31, z - 0.2), (12, 0.04, 0.08), "#00F5FF", mat=1)
+
+
+def loc_cafe(mb, coll):
+    mb.box((0, 6, -0.1), (20, 20, 0.2), "#B07D62")
+    for i in range(-9, 10):
+        mb.box((i, 6, 0.005), (0.04, 20, 0.02), "#8A5A44")
+    mb.box((0, 11, 4), (20, 0.4, 8), "#F3D5B5")
+    mb.box((0, 10.75, 0.6), (20, 0.1, 1.2), "#8A5A44")
+    for side in (-1, 1):
+        mb.box((side * 9, 6, 4), (0.4, 14, 8), "#E8C39E")
+    mb.box((-4.5, 10.7, 4.0), (4.5, 0.1, 2.6), "#A8DADC")
+    mb.box((-4.5, 10.65, 4.0), (0.1, 0.1, 2.6), "#FFFFFF")
+    mb.box((-4.5, 10.65, 4.0), (4.5, 0.1, 0.1), "#FFFFFF")
+    mb.box((4.0, 10.7, 4.2), (3.4, 0.1, 2.2), "#2B2D42")
+    for k in range(4):
+        mb.box((4.0, 10.6, 4.9 - k * 0.45), (2.4 - (k % 2) * 0.6, 0.02, 0.1), "#F8F9FA")
+    text_object("cafe_sign", "CAFE", coll, (4.0, 10.6, 5.7), 0.45, "#FFD166")
+    mb.box((3.0, 8.2, 0.55), (7, 1.0, 1.1), "#6F4518")
+    mb.box((3.0, 8.2, 1.15), (7.2, 1.2, 0.1), "#DDB892")
+    mb.box((4.5, 8.3, 1.55), (0.8, 0.6, 0.7), "#ADB5BD")
+    mb.box((4.5, 8.0, 1.35), (0.2, 0.15, 0.1), "#212529")
+    for k in range(3):
+        mb.cyl((1.6 + k * 0.5, 8.0, 1.3), 0.1, 0.2, ["#FFFFFF", "#E76F51", "#2A9D8F"][k], segs=8)
+    for (tx, ty) in [(-4.5, 3.5), (4.5, 3.0)]:
+        mb.cyl((tx, ty, 0.4), 0.08, 0.8, DARK, segs=6)
+        mb.cyl((tx, ty, 0.82), 0.8, 0.08, "#F8F9FA", segs=12)
+        mb.cyl((tx + 0.2, ty, 0.92), 0.1, 0.14, "#FFFFFF", segs=8)
+        for dx in (-1.1, 1.1):
+            mb.box((tx + dx, ty, 0.45), (0.5, 0.5, 0.08), "#C1121F")
+            mb.box((tx + dx * 1.2, ty, 0.8), (0.08, 0.5, 0.7), "#C1121F")
+            mb.box((tx + dx, ty, 0.2), (0.06, 0.06, 0.4), DARK)
+    for lx in (-3, 0, 3):
+        mb.box((lx, 6, 7), (0.03, 0.03, 2.0), DARK)
+        mb.cyl((lx, 6, 5.85), 0.35, 0.3, "#E9C46A", segs=8, radius2=0.12)
+        mb.ball((lx, 6, 5.65), 0.14, "#FFF3B0", mat=1)
+    for px in (-8, 8):
+        mb.cyl((px, 9.5, 0.35), 0.35, 0.7, "#BC6C25", segs=8)
+        mb.ball((px, 9.5, 1.1), 0.6, "#40916C", subdiv=1)
+
+
+def kaiju(k):
+    green, belly = "#3BB273", "#C5E063"
+    kx, ky = 0.0, 0.0
+    k.box((kx - 2.2, ky, 4), (2.4, 2.6, 8), green)
+    k.box((kx + 2.2, ky, 4), (2.4, 2.6, 8), green)
+    k.box((kx, ky, 13), (7.5, 5, 10), green)
+    k.box((kx, ky - 2.55, 12.5), (5, 0.2, 8), belly)
+    k.box((kx, ky + 4, 9), (3, 6, 3), green, rot=(0.3, 0, 0))
+    k.box((kx, ky + 8, 7.5), (2, 5, 2), green, rot=(0.3, 0, 0))
+    k.box((kx, ky - 1.2, 20.5), (4.8, 5.5, 4.0), green)
+    k.box((kx, ky - 4.2, 19.6), (4.2, 2.0, 2.2), green)
+    k.box((kx, ky - 4.3, 18.4), (4.0, 1.8, 0.6), "#F8F9FA")
+    k.box((kx, ky - 4.0, 18.0), (3.8, 1.8, 0.8), green)
+    for ex in (-1.4, 1.4):
+        k.box((kx + ex, ky - 4.0, 21.6), (0.9, 0.2, 0.6), "#FFEE32", mat=1)
+    for side in (-1, 1):
+        k.box((kx + side * 4.6, ky - 2.0, 14.5), (1.6, 4.0, 1.6), green, rot=(0.6, 0, 0))
+        for c in (-0.5, 0.0, 0.5):
+            k.box((kx + side * 4.6 + c, ky - 4.3, 13.4), (0.25, 0.6, 0.25), "#F8F9FA")
+    for i in range(6):
+        k.box((kx, ky + 2.0 + i * 1.2, 18.5 - i * 1.5), (0.6, 1.0, 1.6), "#F77F00", rot=(0.785, 0, 0))
+
+
+def loc_kaiju_city(mb, coll):
+    ground(mb, "#5C677D")
+    mb.box((0, 0, 0.0), (70, 6.0, 0.06), "#3D405B")
+    random.seed(13)
+    palette = ["#E5989B", "#B5838D", "#6D6875", "#FFB4A2", "#83C5BE", "#006D77"]
+    for (bx, by, w, h) in [(-12, 8, 5, 12), (-6.5, 12, 4, 16), (7, 10, 5, 14), (13, 7, 5, 9), (-16, 15, 6, 20), (17, 16, 6, 18)]:
+        building(mb, bx, by, w, 4, h, random.choice(palette), lit=True, door=False)
+    building(mb, 3.6, 6, 3.4, 3, 6, "#E5989B", door=False)
+    mb.box((3.6, 6.5, 6.5), (2.2, 2.6, 1.0), "#6D6875", rot=(0.2, 0.3, 0.1))
+    k = MeshBuilder()
+    kaiju(k)
+    obj = k.to_object("kaiju_city.kaiju", coll)
+    obj.location = (-0.5, 27.0, 0.0)
+    obj.scale = (0.78, 0.78, 0.78)
+    for i in range(6):
+        mb.ball((random.choice([-1, 1]) * random.uniform(5, 12), random.uniform(18, 26), random.uniform(1, 4)), random.uniform(1.2, 2.0), "#ADB5BD", subdiv=1)
+    for i in range(3):
+        mb.ball((random.uniform(-9, 9), random.uniform(16, 22), random.uniform(0.5, 1.5)), random.uniform(0.6, 1.0), "#FF7B00", subdiv=1, mat=1)
+    car(mb, 6, -1.4, "#FFBE0B", rot=math.pi + 0.3)
+    car(mb, -6.5, 1.0, "#3A86FF", rot=-0.2)
+
+
+def loc_saloon(mb, coll):
+    ground(mb, "#E3B778")
+    random.seed(17)
+    mb.box((0, 9, 3.5), (12, 6, 7), "#9C6644")
+    mb.box((0, 5.95, 8.0), (12, 0.3, 3.0), "#7F5539")
+    for k in range(14):
+        mb.box((-5.6 + k * 0.86, 5.98, 3.5), (0.05, 0.08, 7.0), "#7F5539")
+    mb.box((0, 4.6, 3.3), (12.4, 3.0, 0.2), "#B08968")
+    for px in (-5.8, -2, 2, 5.8):
+        mb.box((px, 3.3, 1.6), (0.25, 0.25, 3.2), "#7F5539")
+    mb.box((0, 4.5, 0.15), (12.4, 3.0, 0.3), "#B08968")
+    text_object("saloon_sign", "SALOON", coll, (0, 5.75, 8.0), 1.3, "#FFF1C1")
+    mb.box((-0.55, 5.95, 1.6), (1.0, 0.1, 1.2), "#DDB892")
+    mb.box((0.55, 5.95, 1.6), (1.0, 0.1, 1.2), "#DDB892")
+    for wx in (-4, 4):
+        mb.box((wx, 5.95, 2.0), (2.0, 0.1, 1.4), "#FFD166", mat=1)
+    building(mb, -12, 7, 7, 5, 6, "#B5838D", win="#FFE8A3", door=True)
+    building(mb, 12, 7, 7, 5, 5, "#A3B18A", win="#FFE8A3", door=True)
+    mb.box((-4.5, 1.5, 0.9), (2.6, 0.12, 0.12), "#7F5539")
+    for hx in (-5.7, -3.3):
+        mb.box((hx, 1.5, 0.5), (0.15, 0.15, 1.0), "#7F5539")
+    for (bx, by) in [(4.2, 2.0), (4.9, 2.5)]:
+        mb.cyl((bx, by, 0.5), 0.4, 1.0, "#7F4F24", segs=8)
+        mb.cyl((bx, by, 0.5), 0.42, 0.08, "#343A40", segs=8)
+    for (cx, cy, s) in [(-9, 2, 1.0), (10, 3, 1.3), (-15, 13, 1.6), (16, 14, 1.4), (7, 16, 1.1)]:
+        mb.box((cx, cy, 1.2 * s), (0.6 * s, 0.6 * s, 2.4 * s), "#2D6A4F")
+        mb.box((cx + 0.6 * s, cy, 1.3 * s), (0.6 * s, 0.4 * s, 0.4 * s), "#2D6A4F")
+        mb.box((cx + 0.8 * s, cy, 1.8 * s), (0.4 * s, 0.4 * s, 1.0 * s), "#2D6A4F")
+        mb.box((cx - 0.6 * s, cy, 1.6 * s), (0.6 * s, 0.4 * s, 0.4 * s), "#2D6A4F")
+        mb.box((cx - 0.8 * s, cy, 2.0 * s), (0.4 * s, 0.4 * s, 0.8 * s), "#2D6A4F")
+    for i in range(8):
+        mb.box((random.uniform(-25, 25), random.uniform(25, 45), 2), (random.uniform(6, 14), 6, random.uniform(3, 8)), "#C97C5D")
+    mb.ball((-2.5, 2.5, 0.35), 0.4, "#A98467", subdiv=1)
+
+
+MOODS = {
+    "main_street": dict(sky="#8ECDF7", sun_color="#FFF4E0", sun_energy=4.0, sun_elev=50, sun_az=-35, ambient=1.0),
+    "bank": dict(sky="#9AD3F7", sun_color="#FFF4E0", sun_energy=4.0, sun_elev=55, sun_az=30, ambient=1.0),
+    "park": dict(sky="#9BE0FF", sun_color="#FFF1D0", sun_energy=4.2, sun_elev=55, sun_az=-30, ambient=1.0),
+    "rooftop": dict(sky="#F4A261", sun_color="#FFB27A", sun_energy=3.2, sun_elev=18, sun_az=40, ambient=0.8),
+    "alley": dict(sky="#4A4870", sun_color="#C8CFFF", sun_energy=2.6, sun_elev=65, sun_az=10, ambient=1.0),
+    "casino": dict(sky="#120A26", sun_color="#C77DFF", sun_energy=1.4, sun_elev=60, sun_az=-20, ambient=0.5),
+    "wasteland": dict(sky="#E07A5F", sun_color="#FFB085", sun_energy=3.5, sun_elev=25, sun_az=-50, ambient=0.8),
+    "spaceship": dict(sky="#1B263B", sun_color="#E0F2FF", sun_energy=2.6, sun_elev=70, sun_az=0, ambient=0.8),
+    "cafe": dict(sky="#FFE8CC", sun_color="#FFD9A0", sun_energy=3.0, sun_elev=50, sun_az=25, ambient=0.9),
+    "kaiju_city": dict(sky="#F28F3B", sun_color="#FFC07A", sun_energy=3.2, sun_elev=30, sun_az=35, ambient=0.8),
+    "saloon": dict(sky="#FFB86B", sun_color="#FFD29D", sun_energy=4.0, sun_elev=30, sun_az=-40, ambient=0.9),
+}
+
+BUILDERS = {
+    "main_street": loc_main_street, "bank": loc_bank, "park": loc_park, "rooftop": loc_rooftop,
+    "alley": loc_alley, "casino": loc_casino, "wasteland": loc_wasteland, "spaceship": loc_spaceship,
+    "cafe": loc_cafe, "kaiju_city": loc_kaiju_city, "saloon": loc_saloon,
+}
+
+
+def generic_location(mb, coll):
+    loc_main_street(mb, coll)
+
+
+def build_location(name):
+    random.seed(zlib.crc32(name.encode()))
+    coll = bpy.data.collections.new(name)
+    bpy.context.scene.collection.children.link(coll)
+    mb = MeshBuilder()
+    BUILDERS.get(name, generic_location)(mb, coll)
+    obj = mb.to_object(name + ".set", coll)
+    if name == "rooftop":
+        sky = MeshBuilder()
+        random.seed(11)
+        for i in range(40):
+            bx, by = random.uniform(-45, 45), random.uniform(20, 70)
+            w = random.uniform(4, 9)
+            h = random.uniform(26, 46)
+            building(sky, bx, by, w, w, h, random.choice(["#4361EE", "#7209B7", "#3A0CA3", "#4895EF", "#F72585", "#560BAD"]), lit=True, door=False)
+        skyline = sky.to_object("rooftop.skyline", coll)
+        skyline.location.z = -32
+    for k, v in MOODS.get(name, MOODS["main_street"]).items():
+        coll[k] = v
+    coll["label"] = castlib.library()["locations"].get(name, {}).get("label", name)
+    for mark, pos in CHAR_MARKS.items():
+        e = bpy.data.objects.new(f"{name}.mark.{mark}", None)
+        e.empty_display_type = "SINGLE_ARROW"
+        e.location = pos
+        coll.objects.link(e)
+    for mark, (eye, target, lens) in CAM_MARKS.items():
+        e = bpy.data.objects.new(f"{name}.cam.{mark}", None)
+        e.empty_display_type = "CONE"
+        e.location = eye
+        e.rotation_euler = castlib.look_at_rotation(eye, target)
+        e["target"] = list(target)
+        e["lens"] = float(lens)
+        coll.objects.link(e)
+    return coll
+
+
+def build_town(out_path):
+    bpy.ops.wm.read_factory_settings(use_empty=True)
+    lib = castlib.library()
+    for name in lib["locations"].keys():
+        build_location(name)
+    for coll in list(bpy.context.scene.collection.children):
+        bpy.context.scene.collection.children.unlink(coll)
+        coll.use_fake_user = True
+    os.makedirs(os.path.dirname(out_path), exist_ok=True)
+    bpy.ops.wm.save_as_mainfile(filepath=out_path, compress=False)
+    print(f"Saved town with {len(lib['locations'])} locations to {out_path}")
+
+
+if __name__ == "__main__":
+    argv = sys.argv[sys.argv.index("--") + 1:] if "--" in sys.argv else []
+    build_town(os.path.abspath(argv[0]) if argv else castlib.TOWN_PATH)

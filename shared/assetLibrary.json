@@ -1,0 +1,213 @@
+{
+  "version": 1,
+  "render": {
+    "width": 720,
+    "height": 1280,
+    "fps": 24,
+    "shot_seconds": 3,
+    "max_shots": 3
+  },
+  "looks": {
+    "hair_styles": [
+      "bald",
+      "buzz",
+      "short",
+      "spiky",
+      "curly",
+      "afro",
+      "long",
+      "ponytail",
+      "bun",
+      "mohawk"
+    ],
+    "facial_hair": [
+      "none",
+      "stubble",
+      "mustache",
+      "beard",
+      "goatee"
+    ],
+    "glasses": [
+      "none",
+      "round",
+      "square",
+      "sunglasses"
+    ],
+    "shirt_styles": [
+      "tshirt",
+      "hoodie",
+      "suit",
+      "jacket",
+      "tanktop",
+      "dress"
+    ],
+    "accessories": [
+      "none",
+      "cap",
+      "beanie",
+      "headphones",
+      "cowboy_hat",
+      "crown",
+      "bowtie"
+    ]
+  },
+  "locations": {
+    "main_street": {
+      "label": "Main Street"
+    },
+    "bank": {
+      "label": "Bank"
+    },
+    "park": {
+      "label": "Park"
+    },
+    "rooftop": {
+      "label": "Rooftop"
+    },
+    "alley": {
+      "label": "Alley"
+    },
+    "casino": {
+      "label": "Neon Casino"
+    },
+    "wasteland": {
+      "label": "Zombie Wasteland"
+    },
+    "spaceship": {
+      "label": "Spaceship Bridge"
+    },
+    "cafe": {
+      "label": "Cozy Café"
+    },
+    "kaiju_city": {
+      "label": "Kaiju City"
+    },
+    "saloon": {
+      "label": "Western Saloon"
+    }
+  },
+  "character_marks": [
+    "center",
+    "left",
+    "right",
+    "back"
+  ],
+  "camera_marks": [
+    "wide",
+    "medium",
+    "closeup",
+    "low_angle",
+    "overhead"
+  ],
+  "camera_moves": [
+    "static",
+    "dolly_in",
+    "dolly_out",
+    "orbit",
+    "push_in",
+    "pan",
+    "shake"
+  ],
+  "actions": [
+    "idle",
+    "walk",
+    "run",
+    "jump",
+    "wave",
+    "point",
+    "punch",
+    "dance",
+    "celebrate",
+    "fall",
+    "sneak",
+    "talk",
+    "scared",
+    "sit"
+  ],
+  "genres": {
+    "heist": {
+      "label": "Heist",
+      "emoji": "💰",
+      "roles": [
+        "Mastermind",
+        "Safecracker",
+        "Getaway Driver"
+      ],
+      "default_locations": [
+        "casino",
+        "bank",
+        "rooftop"
+      ]
+    },
+    "zombie": {
+      "label": "Zombie Escape",
+      "emoji": "🧟",
+      "roles": [
+        "Last Survivor",
+        "Reluctant Hero",
+        "Zombie Whisperer"
+      ],
+      "default_locations": [
+        "wasteland",
+        "alley",
+        "rooftop"
+      ]
+    },
+    "space": {
+      "label": "Space Mission",
+      "emoji": "🚀",
+      "roles": [
+        "Captain",
+        "Pilot",
+        "Engineer"
+      ],
+      "default_locations": [
+        "spaceship",
+        "spaceship",
+        "spaceship"
+      ]
+    },
+    "romcom": {
+      "label": "Rom-Com",
+      "emoji": "💘",
+      "roles": [
+        "Hopeless Romantic",
+        "Barista",
+        "Best Friend"
+      ],
+      "default_locations": [
+        "cafe",
+        "park",
+        "main_street"
+      ]
+    },
+    "kaiju": {
+      "label": "Kaiju Battle",
+      "emoji": "🦖",
+      "roles": [
+        "City Defender",
+        "News Reporter",
+        "Mech Pilot"
+      ],
+      "default_locations": [
+        "kaiju_city",
+        "rooftop",
+        "main_street"
+      ]
+    },
+    "western": {
+      "label": "Wild West",
+      "emoji": "🤠",
+      "roles": [
+        "Sheriff",
+        "Outlaw",
+        "Saloon Owner"
+      ],
+      "default_locations": [
+        "saloon",
+        "main_street",
+        "main_street"
+      ]
+    }
+  }
+}
