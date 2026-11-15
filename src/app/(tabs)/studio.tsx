@@ -1,166 +1,207 @@
-import { useMutation, useQuery } from 'convex/react';
-import * as Haptics from 'expo-haptics';
+import { useQuery } from 'convex/react';
 import { useRouter } from 'expo-router';
-import { useState } from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { SymbolView } from 'expo-symbols';
+import { useMemo } from 'react';
+import { Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 
 import { api } from '../../../convex/_generated/api';
 import type { Id } from '../../../convex/_generated/dataModel';
-import { REEL_TEMPLATES } from '../../../convex/reels';
 import { BlockyCharacter } from '@/components/blocky-character';
+import { CategoryCard, EntryCard, ProjectCard, RemixCard, SectionHeader, StyleTile, tap, TrendingCard, useQuickRemix } from '@/components/studio';
+import { ART_STYLES, useArtStyle } from '@/art-style';
 import { DEMO_LOOK } from '@/demo-look';
-import { GENRE_COLORS, GENRES, type GenreId } from '@/library';
-import { addLocal } from '@/local';
+import { useLocalIds } from '@/local';
 import { useMe } from '@/me';
-import { colors, radius, type } from '@/theme';
-
-const PIPELINE = [
-  { icon: '📸', label: 'Photo', sub: 'deleted after' },
-  { icon: '🧠', label: 'AI look', sub: 'OpenAI' },
-  { icon: '✍️', label: 'Script', sub: 'you direct' },
-  { icon: '🎙️', label: 'Voice', sub: 'narration' },
-  { icon: '🧊', label: 'Blender', sub: 'renders 3D' },
-  { icon: '📲', label: 'Premiere', sub: 'via Convex' },
-];
+import { CATEGORIES, templateById, templateStats, TRENDING_REELS } from '@/templates';
+import { colors, radius } from '@/theme';
 
 export default function Studio() {
   const router = useRouter();
   const { id, me } = useMe();
   const profile = useQuery(api.social.profile, id ? { userId: id, viewerId: id } : 'skip');
-  const create = useMutation(api.movies.create);
-  const createReel = useMutation(api.movies.createReel);
-  const [starting, setStarting] = useState<string | null>(null);
+  const feed = useQuery(api.movies.feed);
+  const trending = useQuery(api.movies.byIds, { ids: TRENDING_REELS });
+  const saved = useLocalIds('saved');
+  const savedItems = useQuery(api.movies.byIds, { ids: saved.ids });
+  const stats = useMemo(() => templateStats(feed), [feed]);
+  const quick = useQuickRemix();
+  const look = useArtStyle();
 
   const castMemberId = me?.castMemberId as Id<'castMembers'> | undefined;
-  const productions = (profile?.reels ?? []).filter((r) => r.status !== 'done').slice(0, 6);
-  const finished = (profile?.reels ?? []).filter((r) => r.status === 'done').slice(0, 6);
-
-  const start = async (kind: 'reel' | 'genre', key: string) => {
-    Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Heavy);
-    if (!castMemberId) {
-      router.push('/cast/consent');
-      return;
-    }
-    setStarting(key);
-    try {
-      const movieId =
-        kind === 'reel'
-          ? await createReel({ templateId: key, master: castMemberId, ownerId: id ?? undefined })
-          : await create({ castMemberId, genre: key, ownerId: id ?? undefined });
-      await addLocal('mine', movieId);
-      router.push({ pathname: kind === 'reel' ? '/movie/[id]/reel' : '/movie/[id]/story', params: { id: movieId } });
-    } finally {
-      setStarting(null);
-    }
-  };
+  const firstName = me?.look ? me.name : null;
+  const mine = profile?.reels ?? [];
+  const seeded = (feed ?? []).filter((r) => r.owner?._id !== id && r.thumbnailUrl).slice(0, Math.max(0, 8 - mine.length));
 
   const open = (item: { _id: Id<'movies'>; status: string; isReel: boolean }) => {
     const pathname =
-      item.status === 'done' ? '/movie/[id]/premiere' : item.status === 'draft' ? (item.isReel ? '/movie/[id]/reel' : '/movie/[id]/story') : '/movie/[id]/render';
+      item.status === 'done' ? '/movie/[id]/premiere' : item.status === 'draft' ? (item.isReel ? '/movie/[id]/edit' : '/movie/[id]/story') : '/movie/[id]/render';
     router.push({ pathname, params: { id: item._id } });
+  };
+
+  const scratch = () => {
+    if (!castMemberId) return router.push('/cast/consent');
+    router.push({ pathname: '/movie/new', params: { castMemberId } });
   };
 
   return (
     <SafeAreaView edges={['top']} style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.content}>
-        <Text style={type.label}>Cast Studio</Text>
-        <Text style={type.title}>Direct everything.</Text>
-
-        <View style={styles.starCard}>
-          <View style={styles.starArt}>
-            <BlockyCharacter look={me?.look ?? DEMO_LOOK} size={130} />
+      <ScrollView contentContainerStyle={styles.content} showsVerticalScrollIndicator={false}>
+        <View style={styles.topRow}>
+          <View>
+            <Text style={styles.kicker}>CAST STUDIO</Text>
+            <Text style={styles.pageTitle}>Create</Text>
           </View>
-          <View style={{ flex: 1, gap: 8 }}>
-            <Text style={type.label}>{me?.look ? 'Your star' : 'Step 1'}</Text>
-            <Text style={type.heading} numberOfLines={1}>
-              {me?.look ? me.name : 'Cast yourself'}
-            </Text>
-            <Text style={type.small}>{me?.look ? 'Your blocky twin is ready for any role.' : 'One photo becomes your blocky movie twin. The photo is deleted right after.'}</Text>
-            <Pressable testID="studio-cast" onPress={() => router.push('/cast/consent')} style={styles.smallBtn}>
-              <Text style={styles.smallBtnText}>{me?.look ? '📸 Recast' : '📸 Cast yourself'}</Text>
-            </Pressable>
-          </View>
-        </View>
-
-        <Text style={type.label}>Narrated reels</Text>
-        {Object.values(REEL_TEMPLATES).map((t) => (
-          <Pressable key={t.id} testID={`studio-reel-${t.id}`} onPress={() => start('reel', t.id)} style={({ pressed }) => [styles.reelCard, pressed && { opacity: 0.85 }]}>
-            <Text style={{ fontSize: 44 }}>{t.emoji}</Text>
-            <View style={{ flex: 1, gap: 4 }}>
-              <Text style={[type.heading, { color: colors.text }]}>{t.label}</Text>
-              <Text style={type.small}>
-                {t.beats.length} shots · AI narrator · {t.slots.map((s) => s.role).join(' + ')}
-              </Text>
-            </View>
-            {starting === t.id ? <ActivityIndicator color={colors.yellow} /> : <Text style={styles.go}>Direct →</Text>}
+          <Pressable
+            testID="studio-new"
+            onPress={() => {
+              tap('medium');
+              scratch();
+            }}
+            style={({ pressed }) => [styles.newBtn, { opacity: pressed ? 0.85 : 1 }]}>
+            <SymbolView name="plus" size={16} tintColor="#0A0A0A" weight="heavy" />
+            <Text style={styles.newBtnText}>New project</Text>
           </Pressable>
-        ))}
+        </View>
 
-        <Text style={type.label}>Cinematic genres</Text>
-        <View style={styles.grid}>
-          {GENRES.filter((g) => g.id !== 'fate').map((g) => (
+        <View style={styles.hero}>
+          <View style={[styles.glow, { backgroundColor: colors.pink, top: -90, right: -60 }]} />
+          <View style={[styles.glow, { backgroundColor: colors.yellow, bottom: -120, left: -80, opacity: 0.16 }]} />
+          <View style={styles.heroText}>
+            <Text style={styles.heroKicker}>{firstName ? 'NOW STARRING' : 'STEP 1'}</Text>
+            <Text style={styles.heroName} numberOfLines={2} adjustsFontSizeToFit>
+              {firstName ? `${firstName},` : 'Cast yourself,'}
+            </Text>
+            <Text style={styles.heroStar}>{firstName ? "you're the star." : 'then star in anything.'}</Text>
+            <Text style={styles.heroSub}>
+              {firstName ? 'Your blocky twin is ready for any role.' : 'One selfie becomes your blocky twin. The photo is deleted right after.'}
+            </Text>
             <Pressable
-              key={g.id}
-              testID={`studio-genre-${g.id}`}
-              onPress={() => start('genre', g.id)}
-              style={({ pressed }) => [styles.genre, { borderColor: GENRE_COLORS[g.id as GenreId] ?? colors.border, opacity: pressed ? 0.85 : 1 }]}>
-              <Text style={{ fontSize: 30 }}>{g.emoji}</Text>
-              <Text style={styles.genreLabel}>{g.label}</Text>
-              {starting === g.id ? <ActivityIndicator color={colors.yellow} size="small" /> : null}
+              testID="studio-cast"
+              onPress={() => {
+                tap('medium');
+                router.push('/cast/consent');
+              }}
+              style={({ pressed }) => [styles.heroBtn, firstName ? styles.heroBtnGhost : null, { opacity: pressed ? 0.85 : 1 }]}>
+              <SymbolView name="camera.fill" size={14} tintColor={firstName ? colors.text : '#0A0A0A'} />
+              <Text style={[styles.heroBtnText, firstName ? { color: colors.text } : null]}>{firstName ? 'Recast' : 'Cast yourself'}</Text>
             </Pressable>
-          ))}
+          </View>
+          <View style={styles.heroArt}>
+            <View style={styles.spotlight} />
+            <BlockyCharacter look={me?.look ?? DEMO_LOOK} size={150} />
+          </View>
         </View>
 
-        {productions.length > 0 ? (
-          <>
-            <Text style={type.label}>In production</Text>
-            {productions.map((m) => (
-              <Pressable key={m._id} onPress={() => open(m)} style={styles.prodRow}>
-                <Text style={{ fontSize: 26 }}>{m.status === 'draft' ? '📝' : m.status === 'failed' ? '⚠️' : '🎬'}</Text>
-                <View style={{ flex: 1 }}>
-                  <Text style={styles.prodTitle} numberOfLines={1}>
-                    {m.title}
-                  </Text>
-                  <Text style={type.small}>{m.status === 'draft' ? 'Draft · tap to keep directing' : m.status === 'failed' ? 'Render failed · tap to retry' : 'Rendering in Blender · tap to watch'}</Text>
-                </View>
-                {m.status === 'rendering' || m.status === 'queued' || m.status === 'voicing' ? <ActivityIndicator color={colors.yellow} /> : <Text style={styles.go}>›</Text>}
-              </Pressable>
-            ))}
-          </>
-        ) : null}
+        <View style={{ gap: 10 }}>
+          <EntryCard
+            testID="studio-scratch"
+            icon="square.and.pencil"
+            accent={colors.yellow}
+            title="Start from scratch"
+            subtitle="Pick a world and write every line yourself."
+            onPress={scratch}
+          />
+          <EntryCard
+            testID="studio-templates"
+            icon="square.grid.2x2.fill"
+            accent={colors.pink}
+            title="Use a template"
+            subtitle="Fate/Ship Night, Send It, Wax On and more. Just drop yourself in."
+            onPress={() => router.push('/create/templates')}
+          />
+          <EntryCard
+            testID="studio-copy"
+            icon="arrow.triangle.2.circlepath"
+            accent={colors.cyan}
+            title="Copy & edit a reel"
+            subtitle="Take a hit from the feed, swap yourself in, rewrite the lines."
+            onPress={() => router.push('/create/remix')}
+          />
+        </View>
 
-        {finished.length > 0 ? (
-          <>
-            <Text style={type.label}>Your premieres</Text>
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
-              {finished.map((m) => (
-                <Pressable key={m._id} onPress={() => open(m)} style={[styles.poster, { borderColor: GENRE_COLORS[m.genre] ?? colors.yellow }]}>
-                  {m.thumbnailUrl ? (
-                    <Image source={{ uri: m.thumbnailUrl }} style={StyleSheet.absoluteFill} resizeMode="cover" />
-                  ) : m.cast[0]?.look ? (
-                    <BlockyCharacter look={m.cast[0].look} size={70} animate={false} />
-                  ) : null}
-                  <Text style={styles.posterTitle} numberOfLines={2}>
-                    {m.title}
-                  </Text>
-                </Pressable>
-              ))}
-            </ScrollView>
-          </>
-        ) : null}
+        <SectionHeader title="Look" />
+        <Text style={styles.lookSub}>Pick the art style for your next reel. You can change it per project in the editor.</Text>
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
+          {ART_STYLES.map((a) => (
+            <StyleTile key={a.id} id={a.id} size={96} selected={look.style === a.id} onPress={() => look.choose(a.id)} />
+          ))}
+        </ScrollView>
 
-        <Text style={type.label}>How Cast makes a reel</Text>
-        <View style={styles.pipeline}>
-          {PIPELINE.map((s, i) => (
-            <View key={s.label} style={styles.step}>
-              <Text style={{ fontSize: 22 }}>{s.icon}</Text>
-              <Text style={styles.stepLabel}>{s.label}</Text>
-              <Text style={styles.stepSub}>{s.sub}</Text>
-              {i < PIPELINE.length - 1 ? <Text style={styles.arrow}>→</Text> : null}
+        <SectionHeader title="Projects" action={mine.length > 0 ? `${mine.length} yours` : undefined} onAction={() => router.push('/(tabs)/profile')} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
+          <Pressable
+            onPress={() => {
+              tap('medium');
+              scratch();
+            }}
+            style={({ pressed }) => [styles.newTile, { opacity: pressed ? 0.85 : 1 }]}>
+            <View style={styles.newTileIcon}>
+              <SymbolView name="plus" size={22} tintColor="#0A0A0A" weight="heavy" />
             </View>
+            <Text style={styles.newTileText}>New</Text>
+          </Pressable>
+          {mine.map((m) => (
+            <ProjectCard key={m._id} item={m} onPress={() => open(m)} />
           ))}
+          {seeded.map((m) => (
+            <ProjectCard key={m._id} item={{ ...m, status: 'done' }} seeded busy={quick.busy === m._id} onPress={() => quick.go(m._id, m.isReel)} />
+          ))}
+        </ScrollView>
+
+        <SectionHeader title="Remix trending" action="See all" onAction={() => router.push('/create/remix')} />
+        <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail} decelerationRate="fast" snapToInterval={312} snapToAlignment="start">
+          {(trending ?? []).map((r, i) => (
+            <TrendingCard
+              key={r._id}
+              item={r}
+              rank={i + 1}
+              busy={quick.busy === r._id}
+              onOpen={() => router.push({ pathname: '/movie/[id]/premiere', params: { id: r._id } })}
+              onRemix={() => quick.go(r._id, r.isReel)}
+            />
+          ))}
+        </ScrollView>
+
+        <SectionHeader title="Templates" action="See all" onAction={() => router.push('/create/templates')} />
+        <View style={styles.grid}>
+          {CATEGORIES.map((c, i) => {
+            const templates = c.templates.map(templateById).filter((t) => !!t);
+            const art = templates.map((t) => stats[t.id]?.thumbnailUrl).find(Boolean);
+            return (
+              <CategoryCard
+                key={c.id}
+                wide={i === 0}
+                label={c.label}
+                emoji={c.emoji}
+                blurb={c.blurb}
+                count={templates.length}
+                accent={templates[0]?.accent ?? colors.yellow}
+                source={art ? { uri: art } : (templates.find((t) => t.still)?.still ?? null)}
+                onPress={() => router.push({ pathname: '/create/templates', params: { category: c.id } })}
+              />
+            );
+          })}
         </View>
+
+        <SectionHeader title="Your saved reels" />
+        {(savedItems ?? []).length === 0 ? (
+          <View style={styles.emptyCard}>
+            <SymbolView name="bookmark" size={22} tintColor={colors.yellow} />
+            <Text style={styles.empty}>Bookmark reels in the feed and they show up here, one tap from your own remix.</Text>
+          </View>
+        ) : (
+          <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.rail}>
+            {(savedItems ?? []).map((r) => (
+              <RemixCard
+                key={r._id}
+                item={r}
+                onOpen={() => router.push({ pathname: '/movie/[id]/premiere', params: { id: r._id } })}
+                onRemix={() => quick.go(r._id, r.isReel)}
+              />
+            ))}
+          </ScrollView>
+        )}
       </ScrollView>
     </SafeAreaView>
   );
@@ -168,23 +209,48 @@ export default function Studio() {
 
 const styles = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.bg },
-  content: { padding: 18, paddingBottom: 32, gap: 14 },
-  starCard: { flexDirection: 'row', gap: 14, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 14, borderWidth: 1, borderColor: colors.border },
-  starArt: { width: 120, height: 150, borderRadius: radius.md, backgroundColor: colors.surfaceHi, alignItems: 'center', justifyContent: 'center', overflow: 'hidden' },
-  smallBtn: { alignSelf: 'flex-start', backgroundColor: colors.yellow, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 8 },
-  smallBtnText: { color: '#0A0A0A', fontWeight: '900' },
-  reelCard: { flexDirection: 'row', alignItems: 'center', gap: 14, padding: 16, borderRadius: radius.lg, backgroundColor: '#1B1030', borderWidth: 1.5, borderColor: '#6B4BFF' },
-  go: { color: colors.yellow, fontWeight: '900', fontSize: 15 },
-  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
-  genre: { width: '31.5%', aspectRatio: 1, borderRadius: radius.md, borderWidth: 1.5, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'center', gap: 6 },
-  genreLabel: { color: colors.text, fontWeight: '800', fontSize: 13, textAlign: 'center' },
-  prodRow: { flexDirection: 'row', alignItems: 'center', gap: 12, padding: 14, borderRadius: radius.md, backgroundColor: colors.surface },
-  prodTitle: { color: colors.text, fontWeight: '800', fontSize: 16 },
-  poster: { width: 120, height: 170, borderRadius: radius.md, borderWidth: 1.5, backgroundColor: colors.surface, alignItems: 'center', justifyContent: 'flex-end', padding: 8, gap: 6, overflow: 'hidden' },
-  posterTitle: { color: colors.text, fontWeight: '800', fontSize: 13, textAlign: 'center' },
-  pipeline: { flexDirection: 'row', flexWrap: 'wrap', gap: 6, backgroundColor: colors.surface, borderRadius: radius.lg, padding: 12 },
-  step: { width: '31%', alignItems: 'center', paddingVertical: 8, gap: 2 },
-  stepLabel: { color: colors.text, fontWeight: '800', fontSize: 13 },
-  stepSub: { color: colors.muted, fontSize: 11 },
-  arrow: { position: 'absolute', right: -6, top: 16, color: colors.faint },
+  content: { paddingHorizontal: 18, paddingTop: 6, paddingBottom: 28, gap: 12 },
+  topRow: { flexDirection: 'row', alignItems: 'flex-end', justifyContent: 'space-between' },
+  kicker: { color: colors.pink, fontSize: 12, fontWeight: '900', letterSpacing: 2 },
+  pageTitle: { color: colors.text, fontSize: 34, fontWeight: '900', letterSpacing: -1 },
+  newBtn: { flexDirection: 'row', alignItems: 'center', gap: 6, backgroundColor: colors.yellow, borderRadius: radius.pill, paddingHorizontal: 14, paddingVertical: 10, marginBottom: 4 },
+  newBtnText: { color: '#0A0A0A', fontWeight: '900', fontSize: 14 },
+  hero: {
+    flexDirection: 'row',
+    borderRadius: 28,
+    backgroundColor: '#15101F',
+    borderWidth: 1,
+    borderColor: 'rgba(255,46,136,0.35)',
+    overflow: 'hidden',
+    minHeight: 210,
+  },
+  glow: { position: 'absolute', width: 240, height: 240, borderRadius: 120, opacity: 0.28 },
+  heroText: { flex: 1, padding: 18, paddingRight: 4, gap: 4, justifyContent: 'center' },
+  heroKicker: { color: colors.yellow, fontSize: 11, fontWeight: '900', letterSpacing: 2 },
+  heroName: { color: colors.text, fontSize: 30, fontWeight: '900', letterSpacing: -1, lineHeight: 33 },
+  heroStar: { color: colors.pink, fontSize: 24, fontWeight: '900', letterSpacing: -0.6, marginTop: -2 },
+  heroSub: { color: colors.muted, fontSize: 13, fontWeight: '600', lineHeight: 18, marginTop: 4 },
+  heroBtn: {
+    marginTop: 10,
+    alignSelf: 'flex-start',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: colors.yellow,
+    borderRadius: radius.pill,
+    paddingHorizontal: 14,
+    paddingVertical: 9,
+  },
+  heroBtnGhost: { backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.18)' },
+  heroBtnText: { color: '#0A0A0A', fontWeight: '900', fontSize: 14 },
+  heroArt: { width: 140, alignItems: 'center', justifyContent: 'flex-end', paddingBottom: 6 },
+  spotlight: { position: 'absolute', bottom: 8, width: 120, height: 26, borderRadius: 60, backgroundColor: 'rgba(255,210,63,0.22)' },
+  rail: { gap: 12, paddingRight: 18 },
+  grid: { flexDirection: 'row', flexWrap: 'wrap', gap: 10, justifyContent: 'space-between' },
+  newTile: { width: 92, height: 158, borderRadius: 14, borderWidth: 1.5, borderStyle: 'dashed', borderColor: colors.border, alignItems: 'center', justifyContent: 'center', gap: 8 },
+  newTileIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: colors.yellow, alignItems: 'center', justifyContent: 'center' },
+  newTileText: { color: colors.text, fontWeight: '800', fontSize: 13 },
+  lookSub: { color: colors.muted, fontSize: 13, fontWeight: '600', marginTop: -6 },
+  empty: { color: colors.muted, fontSize: 14, fontWeight: '600', lineHeight: 20, flex: 1 },
+  emptyCard: { flexDirection: 'row', gap: 12, alignItems: 'center', padding: 16, borderRadius: radius.lg, backgroundColor: colors.surface },
 });

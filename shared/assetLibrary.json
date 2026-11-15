@@ -373,5 +373,32 @@
       "label": "Black gi",
       "description": "Black gi, dark red belt and a red headband (the rival's kit)"
     }
+  },
+  "art_styles": {
+    "blocky": {
+      "label": "Blocky 3D",
+      "emoji": "🧱",
+      "description": "The classic chunky 3D look with soft cel shading."
+    },
+    "anime2d": {
+      "label": "2D Anime",
+      "emoji": "🌸",
+      "description": "Flat two-tone cel shading, bold black ink lines, saturated blue sky."
+    },
+    "pixel": {
+      "label": "Pixel Art",
+      "emoji": "👾",
+      "description": "Retro 16-bit game: chunky pixels, posterized palette, sunset sky."
+    },
+    "clay": {
+      "label": "Claymation",
+      "emoji": "🏺",
+      "description": "Soft matte clay with thumbprint bumps, warm light, stop-motion on 2s."
+    },
+    "comic": {
+      "label": "Comic Book",
+      "emoji": "💥",
+      "description": "Thick ink outlines, halftone dots and punchy pop-art colours."
+    }
   }
 }

@@ -164,7 +164,7 @@ export default function Coop() {
               testID="open-studio"
               onPress={() => {
                 Haptics.selectionAsync();
-                router.push({ pathname: '/movie/[id]/reel', params: { id: coop.draftId! } });
+                router.push({ pathname: '/movie/[id]/edit', params: { id: coop.draftId! } });
               }}
               style={styles.studio}>
               <Text style={{ fontSize: 26 }}>🎞️</Text>

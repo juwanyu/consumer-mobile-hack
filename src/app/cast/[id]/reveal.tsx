@@ -94,11 +94,11 @@ export default function Reveal() {
           onPress={async () => {
             const movieId = await remixMovie({ movieId: recast, castMemberId: id, ownerId: myId ?? undefined });
             await addLocal('mine', movieId);
-            router.replace({ pathname: original.reel ? '/movie/[id]/reel' : '/movie/[id]/story', params: { id: movieId } });
+            router.replace({ pathname: original.reel ? '/movie/[id]/edit' : '/movie/[id]/story', params: { id: movieId } });
           }}
         />
       ) : (
-        <BigButton testID="pick-genre" icon="🎞️" label="Pick your reel" onPress={() => router.push({ pathname: '/movie/new', params: { castMemberId: id } })} />
+        <BigButton testID="pick-genre" icon="🎞️" label="Pick your reel" onPress={() => router.dismissTo('/(tabs)/studio')} />
       )}
       <BigButton variant="ghost" label="Cast someone else" onPress={() => router.replace('/cast/consent')} />
     </Screen>

@@ -17,6 +17,7 @@ from mathutils import Vector
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
+import art_styles  # noqa: E402
 import castlib  # noqa: E402
 from castlib import progress  # noqa: E402
 from character import build_character  # noqa: E402
@@ -1752,6 +1753,7 @@ def render_plan(plan, out_path, progress_file=None, preview_dir=None):
     tmpdir = tempfile.mkdtemp(prefix="cast_")
     edit = build_edit_punchy(plan, built, wav_path, tmpdir) if plan.get("style") == "punchy" else build_edit(plan, built, wav_path)
     configure_output(edit, out_path, plan["quality"])
+    art_styles.apply(built["scene"], plan.get("art_style"), edit)
     os.makedirs(os.path.dirname(os.path.abspath(out_path)) or ".", exist_ok=True)
     progress("rendering", 40, None, None, progress_file, frame=0, frames=total)
     previews = make_previews(built, preview_dir) if preview_dir else {}
@@ -1824,6 +1826,7 @@ def main():
         print(f"[cast] could not read plan {plan_path}: {e}; using defaults", flush=True)
         raw = {}
     plan = sanitize_plan(raw, opts["quality"])
+    plan["art_style"] = art_styles.normalize(raw.get("art_style") if isinstance(raw, dict) else None)
     print("[cast] plan: " + json.dumps(plan), flush=True)
     try:
         render_plan(plan, out_path, opts["progress_file"], opts["preview_dir"])

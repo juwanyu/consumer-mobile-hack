@@ -452,6 +452,7 @@ export const stats = internalMutation({
     title: v.optional(v.string()),
     remixPrice: v.optional(v.number()),
     paidRemixes: v.optional(v.number()),
+    artStyle: v.optional(v.string()),
   },
   handler: async (ctx, { movieId, title, ...patch }) => {
     const movie = await ctx.db.get(movieId);
