@@ -1,0 +1,82 @@
+{
+  "version": 1,
+  "quality": "draft",
+  "genre": "heist",
+  "title": "The Midnight Job",
+  "logline": "One judge. One vault. Zero chill.",
+  "cast": [
+    {
+      "id": "c1",
+      "name": "Maya",
+      "role": "Mastermind",
+      "look": {
+        "skin_tone": "#C68642",
+        "hair_color": "#2B1B10",
+        "hair_style": "ponytail",
+        "facial_hair": "none",
+        "glasses": "round",
+        "shirt_color": "#E63946",
+        "shirt_style": "jacket",
+        "pants_color": "#1D3557",
+        "accessory": "none",
+        "vibe": "Calm genius with a mischievous grin"
+      }
+    }
+  ],
+  "shots": [
+    {
+      "location": "casino",
+      "camera": {
+        "mark": "wide",
+        "move": "dolly_in"
+      },
+      "characters": [
+        {
+          "cast_id": "c1",
+          "mark": "center",
+          "action": "sneak"
+        }
+      ],
+      "dialogue": {
+        "speaker_cast_id": "c1",
+        "text": "Tonight we take the vault."
+      }
+    },
+    {
+      "location": "bank",
+      "camera": {
+        "mark": "closeup",
+        "move": "push_in"
+      },
+      "characters": [
+        {
+          "cast_id": "c1",
+          "mark": "center",
+          "action": "point"
+        }
+      ],
+      "dialogue": {
+        "speaker_cast_id": "c1",
+        "text": "Three... two... one."
+      }
+    },
+    {
+      "location": "rooftop",
+      "camera": {
+        "mark": "low_angle",
+        "move": "orbit"
+      },
+      "characters": [
+        {
+          "cast_id": "c1",
+          "mark": "center",
+          "action": "celebrate"
+        }
+      ],
+      "dialogue": {
+        "speaker_cast_id": "c1",
+        "text": "Nobody saw a thing."
+      }
+    }
+  ]
+}
