@@ -177,7 +177,7 @@ export default function Studio() {
                 blurb={c.blurb}
                 count={templates.length}
                 accent={templates[0]?.accent ?? colors.yellow}
-                source={art ? { uri: art } : (templates.find((t) => t.still)?.still ?? null)}
+                source={templates.find((t) => t.still)?.still ?? (art ? { uri: art } : null)}
                 onPress={() => router.push({ pathname: '/create/templates', params: { category: c.id } })}
               />
             );

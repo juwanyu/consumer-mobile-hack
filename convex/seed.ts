@@ -635,3 +635,43 @@ export const scrubText = internalMutation({
   },
 });
 
+
+export const starterInbox = internalMutation({
+  args: { meId: v.id("users") },
+  handler: async (ctx, { meId }) => {
+    const me = await ctx.db.get(meId);
+    const hero = await ctx.db
+      .query("users")
+      .withIndex("by_handle", (q) => q.eq("handle", "justinyu"))
+      .first();
+    if (!me || !hero || hero._id === meId) return 0;
+    const already = await ctx.db
+      .query("messages")
+      .withIndex("by_to", (q) => q.eq("toId", meId))
+      .first();
+    if (already) return 0;
+    const incoming = await ctx.db
+      .query("messages")
+      .withIndex("by_to", (q) => q.eq("toId", hero._id))
+      .order("desc")
+      .take(120);
+    const outgoing = await ctx.db
+      .query("messages")
+      .withIndex("by_from", (q) => q.eq("fromId", hero._id))
+      .order("desc")
+      .take(40);
+    const rows = [...incoming, ...outgoing].sort((a, b) => a._creationTime - b._creationTime);
+    for (const m of rows) {
+      const fromId = m.fromId === hero._id ? meId : m.fromId;
+      const toId = m.toId === hero._id ? meId : m.toId;
+      if (fromId === toId) continue;
+      await ctx.db.insert("messages", { fromId, toId, body: m.body, ...(m.movieId ? { movieId: m.movieId } : {}), ...(fromId === meId ? { readAt: Date.now() } : {}) });
+    }
+    for (const g of await ctx.db.query("groups").collect()) {
+      if (g.memberIds.includes(hero._id) && !g.memberIds.includes(meId)) await ctx.db.patch(g._id, { memberIds: [...g.memberIds, meId] });
+    }
+    await ctx.db.patch(meId, { pinnedPeers: hero.pinnedPeers ?? [] });
+    return rows.length;
+  },
+});
+

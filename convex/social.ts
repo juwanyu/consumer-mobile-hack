@@ -1,5 +1,6 @@
 import { earningsFor } from "./remix";
 import { v } from "convex/values";
+import { internal } from "./_generated/api";
 import type { Doc, Id } from "./_generated/dataModel";
 import { mutation, query, type MutationCtx, type QueryCtx } from "./_generated/server";
 import { groupSummary, groupUnread, myGroups } from "./groups";
@@ -35,7 +36,9 @@ export const ensureUser = mutation({
       .first();
     if (existing) return existing._id;
     const handle = await freeHandle(ctx, "director");
-    return await ctx.db.insert("users", { deviceKey, handle, name: "New director" });
+    const id = await ctx.db.insert("users", { deviceKey, handle, name: "New director" });
+    await ctx.scheduler.runAfter(0, internal.seed.starterInbox, { meId: id });
+    return id;
   },
 });
 
@@ -319,7 +322,9 @@ export const newAccount = mutation({
       .collect();
     for (const u of current) await ctx.db.patch(u._id, { deviceKey: "parked:" + u._id });
     const handle = await freeHandle(ctx, "director");
-    return await ctx.db.insert("users", { deviceKey, handle, name: "New director" });
+    const id = await ctx.db.insert("users", { deviceKey, handle, name: "New director" });
+    await ctx.scheduler.runAfter(0, internal.seed.starterInbox, { meId: id });
+    return id;
   },
 });
 
