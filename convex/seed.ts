@@ -679,3 +679,62 @@ export const starterInbox = internalMutation({
   },
 });
 
+
+export const restyle = internalMutation({
+  args: { movieId: v.id("movies"), artStyle: v.string() },
+  handler: async (ctx, { movieId, artStyle }) => {
+    const m = await ctx.db.get(movieId);
+    if (!m?.plan) throw new Error("no plan");
+    await ctx.db.patch(movieId, {
+      artStyle,
+      plan: { ...m.plan, art_style: artStyle },
+      status: "queued",
+      attempts: 0,
+      workerId: undefined,
+      stages: [],
+      progress: { label: "Queued for a remaster…", pct: 0 },
+    });
+  },
+});
+
+export const styleRemix = internalMutation({
+  args: { movieId: v.id("movies"), artStyle: v.string(), title: v.string(), rank: v.number(), likes: v.number(), views: v.number() },
+  handler: async (ctx, { movieId, artStyle, title, rank, likes, views }) => {
+    const m = await ctx.db.get(movieId);
+    if (!m?.plan) throw new Error("no plan");
+    const { _id, _creationTime, videoStorageId: _v, previews: _p, ...rest } = m;
+    return await ctx.db.insert("movies", {
+      ...rest,
+      story: { ...m.story, title },
+      plan: { ...m.plan, title, art_style: artStyle },
+      artStyle,
+      remixOf: _id,
+      status: "queued",
+      attempts: 0,
+      workerId: undefined,
+      stages: [],
+      previews: [],
+      progress: { label: "Queued for a remaster…", pct: 0 },
+      postedToFeed: true,
+      pinnedAt: rank,
+      likes,
+      views,
+      shareCount: Math.round(likes / 12),
+      commentCount: Math.round(likes / 40),
+      remixCount: 0,
+      remixPrice: undefined,
+      paidRemixes: undefined,
+      whopPlanId: undefined,
+      sponsor: undefined,
+      sponsorDollars: undefined,
+    });
+  },
+});
+
+
+export const setDeviceKey = internalMutation({
+  args: { userId: v.id("users"), deviceKey: v.string() },
+  handler: async (ctx, { userId, deviceKey }) => {
+    await ctx.db.patch(userId, { deviceKey });
+  },
+});

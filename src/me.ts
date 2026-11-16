@@ -8,12 +8,12 @@ import type { Id } from '../convex/_generated/dataModel';
 let cached: Id<'users'> | null = null;
 let pending: Promise<Id<'users'>> | null = null;
 let device: string | null = null;
+let devicePromise: Promise<string> | null = null;
 const listeners = new Set<(id: Id<'users'>) => void>();
 
-async function deviceKey() {
-  if (device) return device;
-  device = await readDeviceKey();
-  return device;
+function deviceKey() {
+  devicePromise ??= readDeviceKey().then((key) => (device = key));
+  return devicePromise;
 }
 
 async function readDeviceKey() {
