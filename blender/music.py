@@ -278,7 +278,7 @@ def loudness_lufs(x):
 
 
 VOICE_RMS = 0.25
-VOICE_OVER_MUSIC_DB = 6.0
+VOICE_OVER_MUSIC_DB = 10.0
 
 
 def write_mix(path, genre, seconds, cut_times=(), narration=(), events=None, punchy=False, music_path=None,

@@ -1114,6 +1114,27 @@ def build_scene(plan, progress_file=None, offset_frames=0):
         center_mark = obj("mark", "center")
         center = (center_mark.location if center_mark else Vector((0, 0, 0))) + offset
         ev = {}
+        for c, r, p in shot_rigs:
+            if c["action"] != "dunk":
+                continue
+            bmb = castlib.MeshBuilder()
+            bmb.ball((0, 0, 0), 0.22, "#E2711D", subdiv=2)
+            ball = bmb.to_object(f"shot{i + 1}.dunkball", scene.collection)
+            rim = center + Vector((0.0, 0.95, 3.35))
+            rise_f, slam_f = f0 + int(0.5 * shot_frames), f0 + int(0.65 * shot_frames)
+            for f in range(f0, slam_f + 1, 2):
+                scene.frame_set(f)
+                loc = r.matrix_world.translation.copy()
+                k = min(1.0, max(0.0, (f - f0) / max(1, rise_f - f0)))
+                ball.location = loc + Vector((0.0, 0.3, 1.3 + 1.1 * k))
+                ball.keyframe_insert("location", frame=f)
+            for df, pos in ((0, rim + Vector((0, 0, 0.3))), (4, rim + Vector((0, 0, -0.1))), (8, rim + Vector((0, 0, -0.7))),
+                            (16, Vector((rim.x, rim.y, 0.22))), (22, Vector((rim.x, rim.y - 0.3, 1.0))),
+                            (28, Vector((rim.x, rim.y - 0.6, 0.22))), (32, Vector((rim.x, rim.y - 0.75, 0.5))),
+                            (36, Vector((rim.x, rim.y - 0.9, 0.22)))):
+                ball.location = pos
+                ball.keyframe_insert("location", frame=slam_f + 2 + df)
+            scene.frame_set(f0)
         dust_bursts = []
         for c, r, p in shot_rigs:
             if c["action"] == "bike_jump":

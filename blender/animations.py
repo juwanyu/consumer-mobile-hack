@@ -619,7 +619,7 @@ ACTIONS = {
 }
 BIKE_ACTIONS = {"bike_ride", "bike_jump"}
 
-ACTION_PROPS = {"crossover": "ball", "dunk": "ball", "drive": "ball", "slash": "sword", "film": "camera", "summon": "glow", "charge": "sword", "raise_sword": "sword",
+ACTION_PROPS = {"crossover": "ball", "drive": "ball", "slash": "sword", "film": "camera", "summon": "glow", "charge": "sword", "raise_sword": "sword",
                 "block": "sword", "banner": "banner", "rock_on": "horns", "trophy": "trophy"}
 
 
