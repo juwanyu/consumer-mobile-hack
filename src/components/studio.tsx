@@ -235,7 +235,7 @@ export function useQuickRemix() {
       const newId = await remix({ movieId, castMemberId, ownerId: id ?? undefined });
       await addLocal('mine', newId);
       await setArtStyle({ movieId: newId, artStyle: style }).catch(() => {});
-      router.push({ pathname: isReel ? '/movie/[id]/edit' : '/movie/[id]/story', params: { id: newId } });
+      router.push({ pathname: '/movie/[id]/edit', params: { id: newId } });
     } catch (e) {
       Alert.alert('Could not remix', e instanceof Error ? e.message : 'Try again.');
     } finally {

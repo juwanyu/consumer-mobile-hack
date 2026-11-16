@@ -94,7 +94,7 @@ export default function Reveal() {
           onPress={async () => {
             const movieId = await remixMovie({ movieId: recast, castMemberId: id, ownerId: myId ?? undefined });
             await addLocal('mine', movieId);
-            router.replace({ pathname: original.reel ? '/movie/[id]/edit' : '/movie/[id]/story', params: { id: movieId } });
+            router.replace({ pathname: '/movie/[id]/edit', params: { id: movieId } });
           }}
         />
       ) : (

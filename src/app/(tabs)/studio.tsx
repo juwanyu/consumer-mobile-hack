@@ -43,7 +43,7 @@ export default function Studio() {
 
   const scratch = () => {
     if (!castMemberId) return router.push('/cast/consent');
-    router.push({ pathname: '/movie/new', params: { castMemberId } });
+    quick.go(FILM_STUDIO_REEL as Id<'movies'>, true);
   };
 
   return (

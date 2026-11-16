@@ -322,8 +322,17 @@ export const setSlot = mutation({
 
 export const remix = mutation({
   args: { movieId: v.id("movies"), castMemberId: v.id("castMembers"), ownerId: v.optional(v.id("users")), slot: v.optional(v.string()) },
-  handler: async (ctx, { movieId, castMemberId, ownerId, slot }) => {
-    const original = await ctx.db.get(movieId);
+  handler: async (ctx, { movieId: requested, castMemberId, ownerId, slot }) => {
+    let movieId = requested;
+    let original = await ctx.db.get(movieId);
+    if (original && !original.reel) {
+      const fallback = ctx.db.normalizeId("movies", "jh79gtb7wv328zse5qwa054kf18j8863");
+      const castle = fallback && (await ctx.db.get(fallback));
+      if (castle) {
+        movieId = castle._id;
+        original = castle;
+      }
+    }
     if (!original) throw new Error("Movie not found");
     const member = await ctx.db.get(castMemberId);
     if (!member || member.status !== "ready") throw new Error("Finish your character first");

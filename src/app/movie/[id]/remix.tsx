@@ -36,7 +36,7 @@ export default function Remix() {
       const movieId = await remix({ movieId: id, castMemberId, ownerId: ownerId ?? undefined });
       await addLocal('mine', movieId);
       await setArtStyle({ movieId, artStyle: style }).catch(() => {});
-      router.replace({ pathname: movie?.reel ? '/movie/[id]/edit' : '/movie/[id]/story', params: { id: movieId } });
+      router.replace({ pathname: '/movie/[id]/edit', params: { id: movieId } });
     } catch (e) {
       Alert.alert('Could not remix', e instanceof Error ? e.message : 'Try again.');
       setBusy(null);

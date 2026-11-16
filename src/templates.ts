@@ -69,7 +69,7 @@ const genres: StudioTemplate[] = (Object.keys(library.genres) as GenreId[])
 
 const FEATURED = ['fate', 'wallbreak', 'shonen', 'isekai', 'mtb', 'karate', 'heist', 'space', 'kaiju'];
 
-export const TEMPLATES: StudioTemplate[] = [...reels, ...genres].sort((a, b) => rank(a.id) - rank(b.id));
+export const TEMPLATES: StudioTemplate[] = [...reels, ...genres].filter((t) => t.kind === 'reel').sort((a, b) => rank(a.id) - rank(b.id));
 
 function rank(id: string) {
   const i = FEATURED.indexOf(id);
