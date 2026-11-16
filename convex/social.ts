@@ -90,9 +90,17 @@ export const linkCharacter = mutation({
 });
 
 export const switchable = query({
-  args: { handles: v.array(v.string()) },
-  handler: async (ctx, { handles }) => {
+  args: { handles: v.array(v.string()), deviceKey: v.optional(v.string()) },
+  handler: async (ctx, { handles, deviceKey }) => {
     const out = [];
+    if (deviceKey) {
+      const recent = await ctx.db.query("users").order("desc").take(300);
+      for (const u of recent) {
+        if (u.deviceKey.startsWith("parked:") && u.deviceKey.endsWith(":" + deviceKey) && !handles.includes(u.handle)) {
+          out.push({ _id: u._id, handle: u.handle, name: u.name, look: await lookFor(ctx, u) });
+        }
+      }
+    }
     for (const handle of handles) {
       const u = await ctx.db
         .query("users")
@@ -320,7 +328,7 @@ export const newAccount = mutation({
       .query("users")
       .withIndex("by_device", (q) => q.eq("deviceKey", deviceKey))
       .collect();
-    for (const u of current) await ctx.db.patch(u._id, { deviceKey: "parked:" + u._id });
+    for (const u of current) await ctx.db.patch(u._id, { deviceKey: "parked:" + u._id + ":" + deviceKey });
     const handle = await freeHandle(ctx, "director");
     const id = await ctx.db.insert("users", { deviceKey, handle, name: "New director" });
     await ctx.scheduler.runAfter(0, internal.seed.starterInbox, { meId: id });
@@ -338,7 +346,7 @@ export const switchAccount = mutation({
       .query("users")
       .withIndex("by_device", (q) => q.eq("deviceKey", deviceKey))
       .collect();
-    for (const u of current) if (u._id !== toUserId) await ctx.db.patch(u._id, { deviceKey: "parked:" + u._id });
+    for (const u of current) if (u._id !== toUserId) await ctx.db.patch(u._id, { deviceKey: "parked:" + u._id + ":" + deviceKey });
     await ctx.db.patch(toUserId, { deviceKey });
     return toUserId;
   },

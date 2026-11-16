@@ -45,7 +45,10 @@ const reels: StudioTemplate[] = Object.values(REEL_TEMPLATES).map((t) => ({
   still: STILLS[t.id] ?? null,
   roles: t.slots.map((s) => s.role),
   seconds: Math.round(t.beats.reduce((sum, b) => sum + b.duration, 0)),
-  beats: t.beats.map((b) => ({ title: place(b.location), line: b.narration.replace(/\{(master|caster)\}/g, (_, s) => (s === 'master' ? 'You' : 'your sidekick')) })),
+  beats: t.beats.map((b) => ({ title: place(b.location), line: b.narration.replace(/\{(master|caster)\}/g, (_, s: string, at: number, all: string) => {
+      const word = s === 'master' ? 'the star' : 'the sidekick';
+      return at === 0 || /[.!?]\s*$/.test(all.slice(0, at)) ? word[0].toUpperCase() + word.slice(1) : word;
+    }) })),
 }));
 
 const genres: StudioTemplate[] = (Object.keys(library.genres) as GenreId[])

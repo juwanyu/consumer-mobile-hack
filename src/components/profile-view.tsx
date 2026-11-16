@@ -12,7 +12,7 @@ import { BlockyCharacter } from '@/components/blocky-character';
 import { compact } from '@/components/reel-card';
 import { GENRE_COLORS } from '@/library';
 import { useLocalIds } from '@/local';
-import { useMyId, useNewAccount, useSwitchAccount } from '@/me';
+import { useDeviceKey, useMyId, useNewAccount, useSwitchAccount } from '@/me';
 import { colors, radius, type } from '@/theme';
 
 type Tab = 'reels' | 'saved';
@@ -32,7 +32,8 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
   const [switching, setSwitching] = useState(false);
   const switchAccount = useSwitchAccount();
   const newAccount = useNewAccount();
-  const people = useQuery(api.social.switchable, switching ? { handles: SWITCH_HANDLES } : 'skip');
+  const deviceKey = useDeviceKey();
+  const people = useQuery(api.social.switchable, switching ? { handles: SWITCH_HANDLES, deviceKey: deviceKey ?? undefined } : 'skip');
 
   if (!profile) {
     return <SafeAreaView style={styles.screen} />;

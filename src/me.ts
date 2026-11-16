@@ -60,6 +60,14 @@ export function useMyId() {
   return id;
 }
 
+export function useDeviceKey() {
+  const [key, setKey] = useState<string | null>(device);
+  useEffect(() => {
+    if (!key) deviceKey().then(setKey);
+  }, [key]);
+  return key;
+}
+
 export function useSwitchAccount() {
   const switchAccount = useMutation(api.social.switchAccount);
   return async (toUserId: Id<'users'>) => {
