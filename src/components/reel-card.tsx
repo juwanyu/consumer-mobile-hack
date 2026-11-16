@@ -134,7 +134,6 @@ export function ReelCard({ item, active, height, bottomInset, muted, onToggleMut
       <Pressable style={StyleSheet.absoluteFill} onPress={onTap}>
         <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} />
       </Pressable>
-      <View pointerEvents="none" style={styles.shadeBottom} />
       <Animated.Text pointerEvents="none" style={[styles.bigHeart, { opacity: heart, transform: [{ scale: heart.interpolate({ inputRange: [0, 1], outputRange: [0.5, 1.3] }) }] }]}>
         ❤️
       </Animated.Text>
@@ -224,7 +223,6 @@ function RailButton({ icon, label, onPress, testID, tint = colors.text }: { icon
 const shadow = { textShadowColor: 'rgba(0,0,0,0.85)', textShadowRadius: 6, textShadowOffset: { width: 0, height: 1 } };
 
 const styles = StyleSheet.create({
-  shadeBottom: { position: 'absolute', left: 0, right: 0, bottom: 0, height: 320, backgroundColor: 'rgba(0,0,0,0.28)' },
   rail: { position: 'absolute', right: 8, gap: 16, alignItems: 'center' },
   railButton: { alignItems: 'center', gap: 3, minWidth: 48 },
   railIcon: { width: 32, height: 32 },
