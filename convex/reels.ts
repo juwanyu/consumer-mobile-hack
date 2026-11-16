@@ -82,17 +82,17 @@ function nbaTemplate(id: string, npc: string, name: string, title: string): Reel
         camera: { mark: "low_angle", move: "orbit" },
         duration: 2.6,
         characters: [
-          { slot: "master", mark: "center", action: "dunk" },
+          { slot: "master", mark: "center", action: "drive" },
           { slot: them, mark: "left", action: "scared" },
         ],
-        hud: [{ label: "HANG TIME", value: "1.2s" }],
-        caption: "He rises…",
-        narration: "He rises…",
+        hud: [{ label: "DRIVE", value: "LANE OPEN" }],
+        caption: "He's going to the rim…",
+        narration: "He's going to the rim…",
       },
       {
         location: "basketball_court",
         fx: ["flash", "speed_lines", "shockwave"],
-        camera: { mark: "low_angle", move: "shake" },
+        camera: { mark: "wide", move: "push_in" },
         duration: 2.2,
         characters: [
           { slot: "master", mark: "center", action: "dunk" },
@@ -100,7 +100,7 @@ function nbaTemplate(id: string, npc: string, name: string, title: string): Reel
         ],
         hud: [{ label: "DUNK", value: "POSTER" }],
         caption: "HE DUNKS!!",
-        narration: `HE DUNKS! On ${name}!`,
+        narration: "HE DUNKS! HEYYYYYYY!",
       },
       {
         location: "basketball_court",

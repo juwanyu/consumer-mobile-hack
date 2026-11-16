@@ -1071,6 +1071,12 @@ def build_scene(plan, progress_file=None, offset_frames=0):
                                   outfit=member.get("outfit"))
             rig.location = pos
             rig.rotation_euler = (0.0, 0.0, MARK_YAW.get(ch["mark"], 0.0))
+            dunker = next((c for c in shot["characters"] if c["action"] in ("dunk", "drive")), None)
+            if ch is dunker:
+                rig.rotation_euler = (0.0, 0.0, math.pi)
+                rig.location = pos + Vector((0.0, -2.6 if ch["action"] == "drive" else 0.0, 0.0))
+            elif dunker is not None and dunker["action"] == "dunk":
+                rig.location = pos + Vector((0.85, -0.1, 0.0))
             kicker = next((c for c in shot["characters"] if c["action"] == "crane_kick"), None)
             duel = kicker is not None and len(shot["characters"]) > 1
             if duel:

@@ -596,11 +596,18 @@ def pose_dunk(t, T):
         _set(p, "arm_L", _arm(1.5 + 1.2 * (1 - a), 0.3, 1))
         _set(p, "arm_R", _arm(1.5 + 1.2 * (1 - a), 0.3, -1))
         p["torso"][0] = 0.3 * (1 - a)
-    return p, 0.0, up
+    return p, 0.55 * _ease(min(1.0, t / rise)), up
+
+
+def pose_drive(t, T):
+    """Run at the rim dribbling; the ball hand pumps low."""
+    p, fwd, up = pose_run(t, T)
+    _set(p, "arm_R", _arm(0.5 + 0.35 * abs(math.sin(2 * math.pi * 2.2 * t)), 0.15, -1))
+    return p, fwd, up
 
 
 ACTIONS = {
-    "crossover": pose_crossover, "dunk": pose_dunk,
+    "crossover": pose_crossover, "dunk": pose_dunk, "drive": pose_drive,
     "idle": pose_idle, "walk": pose_walk, "run": pose_run, "jump": pose_jump, "wave": pose_wave,
     "point": pose_point, "punch": pose_punch, "dance": pose_dance, "celebrate": pose_celebrate,
     "fall": pose_fall, "sneak": pose_sneak, "talk": pose_talk, "scared": pose_scared, "sit": pose_sit,
@@ -612,7 +619,7 @@ ACTIONS = {
 }
 BIKE_ACTIONS = {"bike_ride", "bike_jump"}
 
-ACTION_PROPS = {"crossover": "ball", "dunk": "ball", "slash": "sword", "film": "camera", "summon": "glow", "charge": "sword", "raise_sword": "sword",
+ACTION_PROPS = {"crossover": "ball", "dunk": "ball", "drive": "ball", "slash": "sword", "film": "camera", "summon": "glow", "charge": "sword", "raise_sword": "sword",
                 "block": "sword", "banner": "banner", "rock_on": "horns", "trophy": "trophy"}
 
 
