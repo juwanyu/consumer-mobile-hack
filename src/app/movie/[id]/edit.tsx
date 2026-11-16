@@ -1,6 +1,7 @@
 import { useMutation, useQuery } from 'convex/react';
 import { Image } from 'expo-image';
 import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useVideoPlayer, VideoView } from 'expo-video';
 import { SymbolView, type SFSymbol } from 'expo-symbols';
 import { useEffect, useRef, useState } from 'react';
 import { ActivityIndicator, Alert, KeyboardAvoidingView, Modal, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
@@ -69,7 +70,26 @@ export default function ReelStudioEditor() {
   const templateId = movie?.reel?.templateId;
   const template = templateId ? REEL_TEMPLATES[templateId] : undefined;
   const sourceId = (movie?.remixOf ?? (templateId ? TEMPLATE_SOURCE_REEL[templateId] : undefined)) as Id<'movies'> | undefined;
-  const source = useQuery(api.movies.get, movie && movie.previewUrls.length === 0 && sourceId ? { movieId: sourceId } : 'skip');
+  const source = useQuery(api.movies.get, sourceId ? { movieId: sourceId } : 'skip');
+  const player = useVideoPlayer(source?.videoUrl ?? null, (p) => {
+    p.loop = false;
+  });
+  const autoAdvance = useRef(false);
+
+  useEffect(() => {
+    if (!shots?.[selected] || !source?.videoUrl) return;
+    if (autoAdvance.current) {
+      autoAdvance.current = false;
+      return;
+    }
+    player.currentTime = shots.slice(0, selected).reduce((s, b) => s + b.duration, 0);
+  }, [selected, shots, player, source?.videoUrl]);
+
+  useEffect(() => {
+    if (!source?.videoUrl) return;
+    if (playing) player.play();
+    else player.pause();
+  }, [playing, player, source?.videoUrl]);
 
   useEffect(() => {
     if (cut && !pending.current) setShots(cut.beats as Beat[]);
@@ -83,7 +103,10 @@ export default function ReelStudioEditor() {
     if (!playing || !shots?.[selected]) return;
     const t = setTimeout(() => {
       if (selected >= shots.length - 1) setPlaying(false);
-      else setSelected(selected + 1);
+      else {
+        autoAdvance.current = true;
+        setSelected(selected + 1);
+      }
     }, shots[selected].duration * 1000);
     return () => clearTimeout(t);
   }, [playing, selected, shots]);
@@ -248,6 +271,7 @@ export default function ReelStudioEditor() {
       <View style={styles.viewport}>
         <View style={styles.frame}>
           {frameFor(selected) ? <Image source={frameFor(selected)!} style={StyleSheet.absoluteFill} contentFit="cover" transition={150} /> : null}
+          {source?.videoUrl ? <VideoView player={player} style={StyleSheet.absoluteFill} contentFit="cover" nativeControls={false} /> : null}
           <View pointerEvents="none" style={[StyleSheet.absoluteFill, { backgroundColor: artStyle.colors[0], opacity: artStyle.id === 'blocky' ? 0 : 0.22 }]} />
           <View style={styles.styleBadge}>
             <Text style={styles.styleBadgeText}>
@@ -266,9 +290,11 @@ export default function ReelStudioEditor() {
               </View>
             ))}
           </View>
-          <Text style={styles.frameCaption} numberOfLines={2}>
-            {fillNames(beat.caption, names)}
-          </Text>
+          {source?.videoUrl ? null : (
+            <Text style={styles.frameCaption} numberOfLines={2}>
+              {fillNames(beat.caption, names)}
+            </Text>
+          )}
           <View style={styles.frameCast}>
             {inShot.map((c) => (
               <View key={c.castMemberId} style={{ marginRight: -6 }}>

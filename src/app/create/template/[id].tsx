@@ -134,7 +134,7 @@ export default function TemplateDetail() {
       </ScrollView>
       <View style={styles.footer}>
         <Pressable testID="use-template" disabled={busy} onPress={use} style={({ pressed }) => [styles.use, { opacity: pressed || busy ? 0.85 : 1 }]}>
-          {busy ? <ActivityIndicator color="#0A0A0A" /> : <Text style={styles.useText}>{castMemberId ? 'Use template' : 'Cast yourself to start'}</Text>}
+          {busy ? <ActivityIndicator color="#0A0A0A" /> : <Text style={styles.useText}>{castMemberId ? '✂️ Edit in Film Studio' : 'Cast yourself to start'}</Text>}
         </Pressable>
       </View>
     </SafeAreaView>
