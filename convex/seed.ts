@@ -1,5 +1,6 @@
 import { v } from "convex/values";
 import library from "../shared/assetLibrary.json";
+import { internal } from "./_generated/api";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { coopLines, coopSlots, makeDraft } from "./coop";
@@ -342,6 +343,16 @@ export const groupsDemo = internalMutation({
       made.push(p.name);
     }
     return made;
+  },
+});
+
+export const revoice = internalMutation({
+  args: { movieId: v.id("movies") },
+  handler: async (ctx, { movieId }) => {
+    const m = await ctx.db.get(movieId);
+    if (!m?.plan) return;
+    await ctx.db.patch(movieId, { status: "voicing", attempts: 0, workerId: undefined, previews: [], stages: [] });
+    await ctx.scheduler.runAfter(0, internal.narration.voice, { movieId, plan: m.plan });
   },
 });
 
