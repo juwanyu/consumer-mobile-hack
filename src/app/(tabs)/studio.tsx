@@ -16,6 +16,8 @@ import { useMe } from '@/me';
 import { CATEGORIES, templateById, templateStats, TRENDING_REELS } from '@/templates';
 import { colors, radius } from '@/theme';
 
+const FILM_STUDIO_REEL = 'jh79gtb7wv328zse5qwa054kf18j8863';
+
 export default function Studio() {
   const router = useRouter();
   const { id, me } = useMe();
@@ -94,6 +96,17 @@ export default function Studio() {
         </View>
 
         <View style={{ gap: 10 }}>
+          <EntryCard
+            testID="studio-editor"
+            icon="scissors"
+            accent={colors.cyan}
+            title={quick.busy === FILM_STUDIO_REEL ? 'Opening the editor…' : '✂️ Film Studio editor'}
+            subtitle="CapCut for movies. Open FATE/SHIP NIGHT on a timeline and edit scenes, lines, roles and style."
+            onPress={() => {
+              if (!castMemberId) return router.push('/cast/consent');
+              quick.go(FILM_STUDIO_REEL as Id<'movies'>, true);
+            }}
+          />
           <EntryCard
             testID="studio-scratch"
             icon="square.and.pencil"

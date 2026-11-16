@@ -209,7 +209,7 @@ export function ProfileView({ handle, userId, showBack }: { handle?: string; use
         renderItem={({ item }) => {
           const accent = GENRE_COLORS[item.genre] ?? colors.yellow;
           const target =
-            item.status === 'done' ? '/movie/[id]/premiere' : item.status === 'draft' ? (item.isReel ? '/movie/[id]/reel' : '/movie/[id]/story') : '/movie/[id]/render';
+            item.status === 'done' ? '/movie/[id]/premiere' : item.status === 'draft' ? (item.isReel ? '/movie/[id]/edit' : '/movie/[id]/story') : '/movie/[id]/render';
           return (
             <Pressable onPress={() => router.push({ pathname: target, params: { id: item._id } })} style={[styles.tile, { backgroundColor: accent + '33' }]}>
               {item.thumbnailUrl ? (
