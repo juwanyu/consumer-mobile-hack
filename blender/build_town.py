@@ -784,7 +784,60 @@ def loc_tournament_arena(mb, coll):
         coll.objects.link(lo)
 
 
+def loc_basketball_court(mb, coll):
+    """Indoor hardwood court: painted key, arcs, a full hoop with backboard and net, bleachers and arena lights."""
+    for k in range(-12, 13):
+        mb.box((k * 0.7, 3.0, -0.05), (0.68, 24, 0.1), "#D9A066" if k % 2 else "#C98F55")
+    mb.box((0, 3.0, -0.12), (40, 40, 0.1), "#20233A")
+    mb.box((0, 1.6, 0.003), (4.9, 5.8, 0.01), "#1D4E89")
+    for sx in (-1, 1):
+        mb.box((sx * 2.45, 1.6, 0.012), (0.08, 5.8, 0.01), "#FFFFFF")
+    mb.box((0, -1.3, 0.012), (4.9, 0.08, 0.01), "#FFFFFF")
+    for k in range(25):
+        a = math.pi * (k / 24)
+        mb.box((math.cos(a) * 7.0, 4.4 - math.sin(a) * 7.0, 0.012), (0.12, 0.12, 0.01), "#FFFFFF")
+    for k in range(16):
+        a = 2 * math.pi * k / 16
+        mb.box((math.cos(a) * 1.8, -1.3 + math.sin(a) * 1.8, 0.012), (0.1, 0.1, 0.01), "#FFFFFF")
+    mb.box((0, 5.6, 2.2), (0.35, 0.35, 4.4), "#3A3F55")
+    mb.box((0, 5.1, 4.1), (0.25, 1.0, 0.25), "#3A3F55")
+    mb.box((0, 4.55, 3.95), (2.6, 0.08, 1.6), "#F4F6FA")
+    for (cx, cz, sx, sz) in ((0, 4.35, 0.9, 0.06), (0, 3.75, 0.9, 0.06), (-0.45, 4.05, 0.06, 0.66), (0.45, 4.05, 0.06, 0.66)):
+        mb.box((cx, 4.5, cz), (sx, 0.02, sz), "#E63946")
+    rim_c = (0.0, 3.95, 3.35)
+    for k in range(14):
+        a = 2 * math.pi * k / 14
+        mb.box((rim_c[0] + math.cos(a) * 0.42, rim_c[1] + math.sin(a) * 0.42, rim_c[2]), (0.2, 0.2, 0.06), "#FF7A1A", rot=(0, 0, a))
+    for k in range(10):
+        a = 2 * math.pi * k / 10
+        mb.box((rim_c[0] + math.cos(a) * 0.33, rim_c[1] + math.sin(a) * 0.33, rim_c[2] - 0.32), (0.03, 0.03, 0.6), "#FFFFFF",
+               rot=(0.25 * math.sin(a), -0.25 * math.cos(a), 0))
+    mb.ball((0.0, 3.95, 3.62), 0.3, "#E2711D", subdiv=2)
+    for row in range(4):
+        mb.box((0, 10.6 + row * 1.2, 0.25 * (row + 1)), (24, 1.2, 0.5 * (row + 1)), ("#3C4157", "#343950")[row % 2])
+    mb.box((0, 16.0, 4.0), (30, 0.4, 8.0), "#14162A")
+    mb.box((0, 15.7, 6.2), (11, 0.1, 1.8), "#FF7A1A", mat=1)
+    mb.box((0, 15.6, 6.2), (10.6, 0.1, 1.5), "#14162A")
+    for (x, y) in ((-7.5, 2.5), (7.5, 2.5)):
+        mb.box((x, y, 0.5), (0.9, 0.9, 1.0), "#2A2E42")
+        for j in range(3):
+            mb.ball((x - 0.25 + j * 0.25, y, 1.15), 0.12, "#E2711D", subdiv=1)
+    text_object("court.title", "1 V 1", coll, (0, 15.5, 6.2), 1.1, "#FFD166", neon=True)
+    import bpy as _bpy
+    for k, x in enumerate((-3.5, 3.5)):
+        ld = _bpy.data.lights.new(f"basketball_court.spot{k}", "SPOT")
+        ld.energy = 1600
+        ld.spot_size = 1.0
+        ld.color = (1.0, 0.96, 0.88)
+        ld.use_shadow = False
+        lo = _bpy.data.objects.new(f"basketball_court.spot{k}", ld)
+        lo.location = (x, -2.0, 7.5)
+        lo.rotation_euler = castlib.look_at_rotation(Vector((x, -2.0, 7.5)), Vector((0, 1.5, 1.0)))
+        coll.objects.link(lo)
+
+
 MOODS = {
+    "basketball_court": dict(sky="#1B1F36", sun_color="#FFE6C2", sun_energy=2.6, sun_elev=60, sun_az=-15, ambient=0.85),
     "dojo": dict(sky="#F4A261", sun_color="#FFB37A", sun_energy=3.4, sun_elev=14, sun_az=60, ambient=0.95),
     "tournament_arena": dict(sky="#20233A", sun_color="#C9D6FF", sun_energy=2.2, sun_elev=55, sun_az=-20, ambient=0.75),
     "mountain_trail": dict(sky="#F5B971", sun_color="#FFD49A", sun_energy=4.2, sun_elev=20, sun_az=-55, ambient=0.95),
@@ -812,6 +865,7 @@ BUILDERS = {
     "summoning_room": loc_summoning_room,
     "yc_hq": loc_yc_hq, "capy_castle": loc_capy_castle, "castle_wall": loc_castle_wall,
     "mountain_trail": loc_mountain_trail, "dojo": loc_dojo, "tournament_arena": loc_tournament_arena,
+    "basketball_court": loc_basketball_court,
 }
 
 

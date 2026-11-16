@@ -769,7 +769,10 @@ def crowd_variants(scene, total):
 def fx_crowd(scene, name, loc, offset, total):
     colls = crowd_variants(scene, total)
     rnd = random.Random(name)
-    if loc == "tournament_arena":
+    if loc == "basketball_court":
+        spots = [Vector((-10.0 + c * 1.25 + rnd.uniform(-0.2, 0.2), 10.6 + row * 1.2 + rnd.uniform(-0.15, 0.15), 0.5 * (row + 1)))
+                 for row in range(4) for c in range(17)]
+    elif loc == "tournament_arena":
         spots = [Vector((-8.6 + c * 1.25 + rnd.uniform(-0.2, 0.2), 7.6 + row * 1.2 + rnd.uniform(-0.15, 0.15), 0.5 * (row + 1)))
                  for row in range(4) for c in range(14)]
     else:

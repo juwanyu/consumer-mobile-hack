@@ -26,7 +26,102 @@ export type ReelTemplate = {
   category?: string;
 };
 
+function nbaTemplate(id: string, npc: string, name: string, title: string): ReelTemplate {
+  const them = `npc:${npc}` as const;
+  return {
+    id,
+    category: "NBA",
+    label: `1v1 vs ${name}`,
+    emoji: "🏀",
+    genre: "nba",
+    title,
+    logline: `Game point vs ${name} · powered by Capy`,
+    voice: "onyx",
+    voiceSpeed: 1.2,
+    slots: [{ id: "master", role: "the challenger", required: true }],
+    beats: [
+      {
+        location: "basketball_court",
+        fx: ["crowd"],
+        camera: { mark: "wide", move: "dolly_in" },
+        duration: 2.4,
+        characters: [
+          { slot: "master", mark: "center", action: "walk" },
+          { slot: them, mark: "left", action: "taunt" },
+        ],
+        hud: [{ label: "SCORE", value: "10-10" }],
+        caption: "1v1. Game point.",
+        narration: `{master} versus ${name}. One on one. Game point.`,
+      },
+      {
+        location: "basketball_court",
+        fx: ["crowd", "flash"],
+        camera: { mark: "closeup", move: "push_in" },
+        duration: 2.2,
+        characters: [{ slot: them, mark: "center", action: "taunt" }],
+        hud: [{ label: "NBA", value: name.toUpperCase() }],
+        caption: `${name}. NBA.`,
+        narration: `${name}. An actual NBA player. He's never lost a 1v1.`,
+      },
+      {
+        location: "basketball_court",
+        fx: ["speed_lines", "crowd"],
+        camera: { mark: "medium", move: "pan" },
+        duration: 2.2,
+        characters: [
+          { slot: "master", mark: "center", action: "run" },
+          { slot: them, mark: "left", action: "fight_stance" },
+        ],
+        hud: [{ label: "CROSSOVER", value: "ANKLES" }],
+        caption: "Crossover.",
+        narration: `Crossover. ${name} bites.`,
+      },
+      {
+        location: "basketball_court",
+        fx: ["slowmo", "sparkles", "crowd"],
+        camera: { mark: "low_angle", move: "orbit" },
+        duration: 2.6,
+        characters: [
+          { slot: "master", mark: "center", action: "jump" },
+          { slot: them, mark: "left", action: "fight_stance" },
+        ],
+        hud: [{ label: "HANG TIME", value: "1.2s" }],
+        caption: "He rises…",
+        narration: "He rises.",
+      },
+      {
+        location: "basketball_court",
+        fx: ["flash", "speed_lines", "shockwave"],
+        camera: { mark: "low_angle", move: "shake" },
+        duration: 2.2,
+        characters: [
+          { slot: "master", mark: "center", action: "jump" },
+          { slot: them, mark: "left", action: "fall" },
+        ],
+        hud: [{ label: "DUNK", value: "POSTER" }],
+        caption: "POSTERIZED.",
+        narration: `Posterized! Right on ${name}.`,
+      },
+      {
+        location: "basketball_court",
+        fx: ["crowd", "sparkles"],
+        camera: { mark: "wide", move: "orbit" },
+        duration: 2.6,
+        characters: [
+          { slot: "master", mark: "center", action: "celebrate" },
+          { slot: them, mark: "left", action: "fall" },
+        ],
+        hud: [{ label: "FINAL", value: "11-10" }],
+        caption: "Game.",
+        narration: `Game. {master} beats ${name}.`,
+      },
+    ],
+  };
+}
+
 export const REEL_TEMPLATES: Record<string, ReelTemplate> = {
+  nba_yaxel: nbaTemplate("nba_yaxel", "yaxel", "Yaxel", "DUNK ON YAXEL"),
+  nba_podz: nbaTemplate("nba_podz", "podz", "Podz", "DUNK ON PODZ"),
   fate: {
     id: "fate",
     category: "Anime",
@@ -475,7 +570,7 @@ export const REEL_TEMPLATES: Record<string, ReelTemplate> = {
     emoji: "🥋",
     genre: "karate",
     title: "WAX ON",
-    logline: "The new karate kid · presented by Whop",
+    logline: "Dojo champion · powered by Capy",
     voice: "onyx",
     voiceSpeed: 1.2,
     slots: [

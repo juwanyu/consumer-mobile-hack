@@ -27,7 +27,7 @@ const STILLS: Record<string, number> = {
   western: require('../assets/templates/western.jpg'),
 };
 
-const REEL_ACCENTS: Record<string, string> = { fate: '#8B6BFF', mtb: '#3DDC84', karate: '#FF2E88', wallbreak: '#E8473B', shonen: '#FF7A1A', isekai: '#2EE6FF' };
+const REEL_ACCENTS: Record<string, string> = { nba_yaxel: '#FF7A1A', nba_podz: '#1D9BF0', fate: '#8B6BFF', mtb: '#3DDC84', karate: '#FF2E88', wallbreak: '#E8473B', shonen: '#FF7A1A', isekai: '#2EE6FF' };
 
 const GENRE_CATEGORY: Record<string, string> = { heist: 'Heist', romcom: 'Rom-com' };
 
@@ -70,7 +70,7 @@ const genres: StudioTemplate[] = (Object.keys(library.genres) as GenreId[])
     };
   });
 
-const FEATURED = ['fate', 'wallbreak', 'shonen', 'isekai', 'mtb', 'karate', 'heist', 'space', 'kaiju'];
+const FEATURED = ['nba_yaxel', 'nba_podz', 'fate', 'wallbreak', 'shonen', 'isekai', 'mtb', 'karate', 'heist', 'space', 'kaiju'];
 
 export const TEMPLATES: StudioTemplate[] = [...reels, ...genres].filter((t) => t.kind === 'reel').sort((a, b) => rank(a.id) - rank(b.id));
 
@@ -116,12 +116,15 @@ export function formatSeconds(s: number) {
 export const TRENDING_REELS = ['jh79gtb7wv328zse5qwa054kf18j8863', 'jh72mmkvh3y7taygyqdtab1tg18j99b0', 'jh79s63xw4crdgzz8ts4ny83t98j8pqk'];
 
 export const TEMPLATE_SOURCE_REEL: Record<string, string> = {
+  nba_yaxel: 'jh7ee0tsm2yw5phn9p0nm07g418ja0dp',
+  nba_podz: 'jh7bcd1t7prad0qzqttst10j5h8jbrqc',
   fate: TRENDING_REELS[0],
   mtb: TRENDING_REELS[1],
   karate: TRENDING_REELS[2],
 };
 
 const CATEGORY_META = [
+  { id: 'NBA', emoji: '🏀', blurb: 'Dunk on Yaxel or Podz' },
   { id: 'Anime', emoji: '⚔️', blurb: 'Summon, transform, break the wall' },
   { id: 'Action', emoji: '💥', blurb: 'Kaiju, space, dojo fights' },
   { id: 'Sports', emoji: '🏆', blurb: 'Send it' },

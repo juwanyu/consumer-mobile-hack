@@ -114,6 +114,9 @@
     },
     "tournament_arena": {
       "label": "Tournament Arena"
+    },
+    "basketball_court": {
+      "label": "Basketball Court"
     }
   },
   "character_marks": [
@@ -290,6 +293,16 @@
         "dojo",
         "tournament_arena"
       ]
+    },
+    "nba": {
+      "label": "NBA",
+      "emoji": "🏀",
+      "roles": [
+        "Baller"
+      ],
+      "default_locations": [
+        "basketball_court"
+      ]
     }
   },
   "fx": [
@@ -349,6 +362,38 @@
         "pants_color": "#1A1A1D",
         "accessory": "none",
         "vibe": "Reigning champ. Never smiles."
+      }
+    },
+    "yaxel": {
+      "name": "Yaxel",
+      "role": "NBA star",
+      "look": {
+        "skin_tone": "#E0AC69",
+        "hair_color": "#2B1B12",
+        "hair_style": "short",
+        "facial_hair": "none",
+        "glasses": "none",
+        "shirt_color": "#552583",
+        "shirt_style": "tshirt",
+        "pants_color": "#552583",
+        "accessory": "none",
+        "vibe": "Actual NBA player. Undefeated in 1v1s."
+      }
+    },
+    "podz": {
+      "name": "Podz",
+      "role": "NBA star",
+      "look": {
+        "skin_tone": "#F1C27D",
+        "hair_color": "#3B2A1A",
+        "hair_style": "short",
+        "facial_hair": "none",
+        "glasses": "none",
+        "shirt_color": "#1D428A",
+        "shirt_style": "tshirt",
+        "pants_color": "#1D428A",
+        "accessory": "none",
+        "vibe": "NBA guard. Nobody dunks on Podz."
       }
     }
   },
