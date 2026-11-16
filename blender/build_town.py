@@ -799,12 +799,13 @@ def loc_basketball_court(mb, coll):
     for k in range(16):
         a = 2 * math.pi * k / 16
         mb.box((math.cos(a) * 1.8, -1.3 + math.sin(a) * 1.8, 0.012), (0.1, 0.1, 0.01), "#FFFFFF")
-    mb.box((0, 5.6, 2.2), (0.35, 0.35, 4.4), "#3A3F55")
-    mb.box((0, 5.1, 4.1), (0.25, 1.0, 0.25), "#3A3F55")
-    mb.box((0, 4.55, 3.95), (2.6, 0.08, 1.6), "#F4F6FA")
+    hy = -3.0
+    mb.box((0, 5.6 + hy, 2.2), (0.35, 0.35, 4.4), "#3A3F55")
+    mb.box((0, 5.1 + hy, 4.1), (0.25, 1.0, 0.25), "#3A3F55")
+    mb.box((0, 4.55 + hy, 3.95), (2.6, 0.08, 1.6), "#F4F6FA")
     for (cx, cz, sx, sz) in ((0, 4.35, 0.9, 0.06), (0, 3.75, 0.9, 0.06), (-0.45, 4.05, 0.06, 0.66), (0.45, 4.05, 0.06, 0.66)):
-        mb.box((cx, 4.5, cz), (sx, 0.02, sz), "#E63946")
-    rim_c = (0.0, 3.95, 3.35)
+        mb.box((cx, 4.5 + hy, cz), (sx, 0.02, sz), "#E63946")
+    rim_c = (0.0, 3.95 + hy, 3.35)
     for k in range(14):
         a = 2 * math.pi * k / 14
         mb.box((rim_c[0] + math.cos(a) * 0.42, rim_c[1] + math.sin(a) * 0.42, rim_c[2]), (0.2, 0.2, 0.06), "#FF7A1A", rot=(0, 0, a))
@@ -812,7 +813,6 @@ def loc_basketball_court(mb, coll):
         a = 2 * math.pi * k / 10
         mb.box((rim_c[0] + math.cos(a) * 0.33, rim_c[1] + math.sin(a) * 0.33, rim_c[2] - 0.32), (0.03, 0.03, 0.6), "#FFFFFF",
                rot=(0.25 * math.sin(a), -0.25 * math.cos(a), 0))
-    mb.ball((0.0, 3.95, 3.62), 0.3, "#E2711D", subdiv=2)
     for row in range(4):
         mb.box((0, 10.6 + row * 1.2, 0.25 * (row + 1)), (24, 1.2, 0.5 * (row + 1)), ("#3C4157", "#343950")[row % 2])
     mb.box((0, 16.0, 4.0), (30, 0.4, 8.0), "#14162A")

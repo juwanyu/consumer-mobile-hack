@@ -857,6 +857,8 @@ def build_character(look, name="Cast", collection=None, variant=0, props=(), out
             _glove(arm, x)
         if side == "R" and "trophy" in props:
             _trophy(arm, x)
+        if side == "R" and "ball" in props:
+            arm.ball((x, -0.08, HAND_Z - 0.12), 0.22, "#E2711D", subdiv=2)
         if side == "L" and "horns" in props:
             _horns(arm, x, GLOVE if "gloves" in props else look["skin_tone"])
         if side == "L" and "laptop" in props:

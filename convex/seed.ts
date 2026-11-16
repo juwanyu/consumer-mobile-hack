@@ -1,4 +1,5 @@
 import { v } from "convex/values";
+import library from "../shared/assetLibrary.json";
 import type { Id } from "./_generated/dataModel";
 import { internalMutation, type MutationCtx } from "./_generated/server";
 import { coopLines, coopSlots, makeDraft } from "./coop";
@@ -736,5 +737,18 @@ export const setDeviceKey = internalMutation({
   args: { userId: v.id("users"), deviceKey: v.string() },
   handler: async (ctx, { userId, deviceKey }) => {
     await ctx.db.patch(userId, { deviceKey });
+  },
+});
+
+export const refreshNpcLooks = internalMutation({
+  args: { movieId: v.id("movies") },
+  handler: async (ctx, { movieId }) => {
+    const m = await ctx.db.get(movieId);
+    if (!m?.plan) return;
+    const npcs = library.npcs as Record<string, { look: Record<string, string> }>;
+    const cast = (m.plan.cast as Array<{ id: string; look: unknown }>).map((c) =>
+      c.id.startsWith("npc_") && npcs[c.id.slice(4)] ? { ...c, look: npcs[c.id.slice(4)].look } : c,
+    );
+    await ctx.db.patch(movieId, { plan: { ...m.plan, cast }, status: "queued", attempts: 0, workerId: undefined, stages: [] });
   },
 });

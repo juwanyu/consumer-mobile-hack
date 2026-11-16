@@ -50,8 +50,8 @@ function nbaTemplate(id: string, npc: string, name: string, title: string): Reel
           { slot: them, mark: "left", action: "taunt" },
         ],
         hud: [{ label: "SCORE", value: "10-10" }],
-        caption: "1v1. Game point.",
-        narration: `{master} versus ${name}. One on one. Game point.`,
+        caption: `vs ${name}. Who wins?`,
+        narration: `{master} versus ${name}. Who wins?`,
       },
       {
         location: "basketball_court",
@@ -61,7 +61,7 @@ function nbaTemplate(id: string, npc: string, name: string, title: string): Reel
         characters: [{ slot: them, mark: "center", action: "taunt" }],
         hud: [{ label: "NBA", value: name.toUpperCase() }],
         caption: `${name}. NBA.`,
-        narration: `${name}. An actual NBA player. He's never lost a 1v1.`,
+        narration: `${name}. Real NBA player.`,
       },
       {
         location: "basketball_court",
@@ -69,12 +69,12 @@ function nbaTemplate(id: string, npc: string, name: string, title: string): Reel
         camera: { mark: "medium", move: "pan" },
         duration: 2.2,
         characters: [
-          { slot: "master", mark: "center", action: "run" },
-          { slot: them, mark: "left", action: "fight_stance" },
+          { slot: "master", mark: "center", action: "crossover" },
+          { slot: them, mark: "left", action: "scared" },
         ],
         hud: [{ label: "CROSSOVER", value: "ANKLES" }],
-        caption: "Crossover.",
-        narration: `Crossover. ${name} bites.`,
+        caption: "THE CROSSOVER!",
+        narration: "Oh, the crossover!",
       },
       {
         location: "basketball_court",
@@ -82,12 +82,12 @@ function nbaTemplate(id: string, npc: string, name: string, title: string): Reel
         camera: { mark: "low_angle", move: "orbit" },
         duration: 2.6,
         characters: [
-          { slot: "master", mark: "center", action: "jump" },
-          { slot: them, mark: "left", action: "fight_stance" },
+          { slot: "master", mark: "center", action: "dunk" },
+          { slot: them, mark: "left", action: "scared" },
         ],
         hud: [{ label: "HANG TIME", value: "1.2s" }],
         caption: "He rises…",
-        narration: "He rises.",
+        narration: "He rises…",
       },
       {
         location: "basketball_court",
@@ -95,12 +95,12 @@ function nbaTemplate(id: string, npc: string, name: string, title: string): Reel
         camera: { mark: "low_angle", move: "shake" },
         duration: 2.2,
         characters: [
-          { slot: "master", mark: "center", action: "jump" },
+          { slot: "master", mark: "center", action: "dunk" },
           { slot: them, mark: "left", action: "fall" },
         ],
         hud: [{ label: "DUNK", value: "POSTER" }],
-        caption: "POSTERIZED.",
-        narration: `Posterized! Right on ${name}.`,
+        caption: "HE DUNKS!!",
+        narration: `HE DUNKS! On ${name}!`,
       },
       {
         location: "basketball_court",
@@ -113,7 +113,7 @@ function nbaTemplate(id: string, npc: string, name: string, title: string): Reel
         ],
         hud: [{ label: "FINAL", value: "11-10" }],
         caption: "Game.",
-        narration: `Game. {master} beats ${name}.`,
+        narration: "Game over.",
       },
     ],
   };

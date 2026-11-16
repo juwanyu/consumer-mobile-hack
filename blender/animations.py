@@ -549,7 +549,58 @@ def pose_trophy(t, T):
     return p, 0.0, 0.12 * abs(math.sin(2 * math.pi * 1.2 * t)) * k
 
 
+def pose_crossover(t, T):
+    """Low dribble stance, ball swapping side to side under the body, shoulders and hips snapping each way."""
+    p = _blank()
+    s = math.sin(2 * math.pi * 1.6 * t)
+    k = max(-1.0, min(1.0, s * 2.2))
+    p["torso"][0] = 0.35
+    p["torso"][2] = 0.45 * k
+    p["root"][1] = 0.12 * k
+    p["head"][0] = -0.3
+    _set(p, "arm_R", _arm(0.55 + 0.35 * max(0.0, -k), 0.25 + 0.45 * k, -1))
+    _set(p, "arm_L", _arm(0.55 + 0.35 * max(0.0, k), 0.25 - 0.45 * k, 1))
+    p["leg_L"][0] = -0.35 + 0.15 * k
+    p["leg_R"][0] = 0.35 + 0.15 * k
+    return p, 0.25 * t, 0.06 * abs(s)
+
+
+def pose_dunk(t, T):
+    """Gather, explode up with the ball over the head, slam it down through the rim, hang, then drop."""
+    p = _blank()
+    gather, rise, slam = 0.18 * T, 0.5 * T, 0.65 * T
+    up = 0.0
+    if t < gather:
+        k = _ease(t / gather)
+        p["torso"][0] = 0.45 * k
+        _set(p, "arm_L", _arm(0.4 * k, 0.1, 1))
+        _set(p, "arm_R", _arm(0.4 * k, 0.1, -1))
+    elif t < rise:
+        a = _ease((t - gather) / (rise - gather))
+        up = 1.7 * a
+        _set(p, "arm_L", _arm(0.4 + 2.5 * a, 0.1, 1))
+        _set(p, "arm_R", _arm(0.4 + 2.5 * a, 0.1, -1))
+        p["leg_L"][0] = -0.6 * a
+        p["leg_R"][0] = 0.2 * a
+        p["head"][0] = -0.25 * a
+    elif t < slam:
+        a = _ease((t - rise) / (slam - rise))
+        up = 1.7 + 0.1 * a
+        _set(p, "arm_L", _arm(2.9 - 1.4 * a, 0.1, 1))
+        _set(p, "arm_R", _arm(2.9 - 1.4 * a, 0.1, -1))
+        p["torso"][0] = 0.3 * a
+        p["head"][0] = 0.2 * a
+    else:
+        a = _ease((t - slam) / max(0.01, T - slam))
+        up = 1.8 * (1 - a)
+        _set(p, "arm_L", _arm(1.5 + 1.2 * (1 - a), 0.3, 1))
+        _set(p, "arm_R", _arm(1.5 + 1.2 * (1 - a), 0.3, -1))
+        p["torso"][0] = 0.3 * (1 - a)
+    return p, 0.0, up
+
+
 ACTIONS = {
+    "crossover": pose_crossover, "dunk": pose_dunk,
     "idle": pose_idle, "walk": pose_walk, "run": pose_run, "jump": pose_jump, "wave": pose_wave,
     "point": pose_point, "punch": pose_punch, "dance": pose_dance, "celebrate": pose_celebrate,
     "fall": pose_fall, "sneak": pose_sneak, "talk": pose_talk, "scared": pose_scared, "sit": pose_sit,
@@ -561,7 +612,7 @@ ACTIONS = {
 }
 BIKE_ACTIONS = {"bike_ride", "bike_jump"}
 
-ACTION_PROPS = {"slash": "sword", "film": "camera", "summon": "glow", "charge": "sword", "raise_sword": "sword",
+ACTION_PROPS = {"crossover": "ball", "dunk": "ball", "slash": "sword", "film": "camera", "summon": "glow", "charge": "sword", "raise_sword": "sword",
                 "block": "sword", "banner": "banner", "rock_on": "horns", "trophy": "trophy"}
 
 

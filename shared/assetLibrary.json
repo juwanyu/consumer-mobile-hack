@@ -172,7 +172,9 @@
     "taunt",
     "fight_stance",
     "crane_kick",
-    "trophy"
+    "trophy",
+    "crossover",
+    "dunk"
   ],
   "genres": {
     "heist": {
@@ -368,32 +370,32 @@
       "name": "Yaxel",
       "role": "NBA star",
       "look": {
-        "skin_tone": "#E0AC69",
-        "hair_color": "#2B1B12",
-        "hair_style": "short",
-        "facial_hair": "none",
+        "skin_tone": "#B07850",
+        "hair_color": "#1E140E",
+        "hair_style": "curly",
+        "facial_hair": "stubble",
         "glasses": "none",
-        "shirt_color": "#552583",
-        "shirt_style": "tshirt",
-        "pants_color": "#552583",
+        "shirt_color": "#FFCB05",
+        "shirt_style": "tanktop",
+        "pants_color": "#FFCB05",
         "accessory": "none",
-        "vibe": "Actual NBA player. Undefeated in 1v1s."
+        "vibe": "Maize #23. Screams after every bucket."
       }
     },
     "podz": {
       "name": "Podz",
       "role": "NBA star",
       "look": {
-        "skin_tone": "#F1C27D",
-        "hair_color": "#3B2A1A",
+        "skin_tone": "#EBC4A0",
+        "hair_color": "#5A3A22",
         "hair_style": "short",
         "facial_hair": "none",
         "glasses": "none",
-        "shirt_color": "#1D428A",
-        "shirt_style": "tshirt",
-        "pants_color": "#1D428A",
+        "shirt_color": "#F7F7F7",
+        "shirt_style": "tanktop",
+        "pants_color": "#F7F7F7",
         "accessory": "none",
-        "vibe": "NBA guard. Nobody dunks on Podz."
+        "vibe": "Golden State #2. Nobody dunks on Podz."
       }
     }
   },

@@ -116,8 +116,8 @@ export function formatSeconds(s: number) {
 export const TRENDING_REELS = ['jh79gtb7wv328zse5qwa054kf18j8863', 'jh72mmkvh3y7taygyqdtab1tg18j99b0', 'jh79s63xw4crdgzz8ts4ny83t98j8pqk'];
 
 export const TEMPLATE_SOURCE_REEL: Record<string, string> = {
-  nba_yaxel: 'jh7ee0tsm2yw5phn9p0nm07g418ja0dp',
-  nba_podz: 'jh7bcd1t7prad0qzqttst10j5h8jbrqc',
+  nba_yaxel: 'jh7b8xf8syxdnbe7z7wx76etzx8jaxvd',
+  nba_podz: 'jh74depy8snzjjzt4xvwzwmr1x8jaaty',
   fate: TRENDING_REELS[0],
   mtb: TRENDING_REELS[1],
   karate: TRENDING_REELS[2],
